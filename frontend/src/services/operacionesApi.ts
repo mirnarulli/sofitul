@@ -1,0 +1,40 @@
+import api from './api';
+
+export const operacionesApi = {
+  getAll:            (params?: any)        => api.get('/operaciones', { params }).then(r => r.data),
+  getById:           (id: string)          => api.get(`/operaciones/${id}`).then(r => r.data),
+  create:            (body: any)           => api.post('/operaciones', body).then(r => r.data),
+  update:            (id: string, b: any)  => api.put(`/operaciones/${id}`, b).then(r => r.data),
+  cambiarEstado:     (id: string, b: any)  => api.put(`/operaciones/${id}/estado`, b).then(r => r.data),
+  registrarProrroga: (id: string, b: any)  => api.put(`/operaciones/${id}/prorroga`, b).then(r => r.data),
+  updateCheque:      (id: string, b: any)  => api.put(`/operaciones/cheques/${id}`, b).then(r => r.data),
+  pagarCuota:        (id: string, b: any)  => api.put(`/operaciones/cuotas/${id}/pagar`, b).then(r => r.data),
+  getEstados:        ()                    => api.get('/operaciones/estados').then(r => r.data),
+  calcularInteres:   (b: any)              => api.post('/operaciones/calcular-interes', b).then(r => r.data),
+};
+
+export const cobranzasApi = {
+  getCartera:        (params?: any)                    => api.get('/cobranzas', { params }).then(r => r.data),
+  getResumenCartera: ()                                => api.get('/cobranzas/resumen').then(r => r.data),
+  getVencimientos:   ()                                => api.get('/cobranzas/vencimientos').then(r => r.data),
+  asignarCobrador:   (id: string, cobradorId: string)  => api.put(`/cobranzas/${id}/cobrador`, { cobradorId }).then(r => r.data),
+  registrarPago:     (id: string, b: any)              => api.post(`/cobranzas/${id}/pago`, b).then(r => r.data),
+};
+
+export const tesoreriaApi = {
+  getPendientesDesembolso: ()                    => api.get('/tesoreria/pendientes').then(r => r.data),
+  getAlertasPagare:        ()                    => api.get('/tesoreria/alertas-pagare').then(r => r.data),
+  registrarDesembolso:     (id: string, b: any)  => api.post(`/tesoreria/${id}/desembolso`, b).then(r => r.data),
+  registrarPagare:         (id: string, b: any)  => api.put(`/tesoreria/${id}/pagare`, b).then(r => r.data),
+};
+
+export const inventarioApi = {
+  getResumen:      () => api.get('/inventario-capital/resumen').then(r => r.data),
+  getCheques:      () => api.get('/inventario-capital/cheques').then(r => r.data),
+  getRentabilidad: () => api.get('/inventario-capital/rentabilidad').then(r => r.data),
+};
+
+export const dashboardsApi = {
+  getRecupero:    () => api.get('/dashboards/recupero').then(r => r.data),
+  getDesembolsos: () => api.get('/dashboards/desembolsos').then(r => r.data),
+};

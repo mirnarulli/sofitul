@@ -1,0 +1,8 @@
+export { Usuario }      from './usuario.entity';
+export { Rol }          from './rol.entity';
+export { Moneda }       from './moneda.entity';
+export { Caja }         from './caja.entity';
+export { Pais }         from './pais.entity';
+export { TipoDocumento } from './tipo-documento.entity';
+export { Configuracion } from './configuracion.entity';
+export { Frase }        from './frase.entity';

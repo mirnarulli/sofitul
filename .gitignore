@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+
+# Environment files (NO se commitean las de producción con credenciales reales)
+# .env.production → sí se commitea (igual que GESTIDES)
+# .env.local → NO
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Temporary
+/tmp/
+*.tar.gz
+*.tgz
+
+# Coverage
+coverage/
+
+# TypeScript build info
+*.tsbuildinfo

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sofitul-backend
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    env_file:
+      - ./backend/.env.production
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    container_name: sofitul-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sofitul_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: sofitul_onetrade
+    volumes:
+      - sofitul_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+volumes:
+  sofitul_postgres_data:
