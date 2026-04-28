@@ -6,9 +6,8 @@ node_modules/
 dist/
 build/
 
-# Environment files (NO se commitean las de producción con credenciales reales)
-# .env.production → sí se commitea (igual que GESTIDES)
-# .env.local → NO
+# Environment files — nunca commitear archivos con credenciales reales
+.env
 .env.local
 
 # Logs
