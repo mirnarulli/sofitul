@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Plus, Search, Building2, User } from 'lucide-react';
 import { contactosApi } from '../../services/contactosApi';
 import { formatDate } from '../../utils/formatters';
 
 export default function Contactos() {
-  const [tab, setTab] = useState<'pf' | 'pj'>('pf');
+  const { pathname } = useLocation();
+  const initTab: 'pf' | 'pj' = pathname.startsWith('/contactos/empresas') ? 'pj' : 'pf';
+  const [tab, setTab] = useState<'pf' | 'pj'>(initTab);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');

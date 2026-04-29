@@ -66,8 +66,10 @@ export default function App() {
 
           {/* Contactos */}
           <Route path="/contactos" element={<Contactos />} />
+          <Route path="/contactos/personas" element={<Contactos />} />
           <Route path="/contactos/personas/nuevo" element={<NuevaPersonaFisica />} />
           <Route path="/contactos/personas/:id" element={<ContactoPFDetalle />} />
+          <Route path="/contactos/empresas" element={<Contactos />} />
           <Route path="/contactos/empresas/nuevo" element={<NuevaEmpresa />} />
           <Route path="/contactos/empresas/:id" element={<ContactoPJDetalle />} />
 
