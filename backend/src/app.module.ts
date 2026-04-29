@@ -46,7 +46,7 @@ import { DashboardsModule }        from './dashboards/dashboards.module';
         ContactoPF, ContactoPJ,
         Operacion, ChequeDetalle, Cuota, EstadoOperacion,
       ],
-      synchronize: false,
+      synchronize: true,
     }),
     BitacoraModule,
     AuthModule,
