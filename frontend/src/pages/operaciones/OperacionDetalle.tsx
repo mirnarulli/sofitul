@@ -136,6 +136,10 @@ export default function OperacionDetalle() {
           <p className="text-gray-500 text-sm mt-0.5">{op.contactoNombre} — {op.contactoDoc}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link to={`/operaciones/${id}/analisis`}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100">
+            <FileText size={14}/> Análisis
+          </Link>
           <Link to={`/operaciones/${id}/solicitud`} target="_blank"
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
             <FileText size={14}/> Liquidación
