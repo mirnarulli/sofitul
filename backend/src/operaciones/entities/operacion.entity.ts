@@ -92,6 +92,10 @@ export class Operacion {
   @Column({ name: 'nro_contrato_te_descuento', nullable: true }) nroContratoTeDescuento: string;
   @Column({ name: 'contrato_te_descuento_url', nullable: true }) contratoTeDescuentoUrl: string;
 
+  // Documentos de análisis (Descuento de Cheque)
+  @Column({ name: 'ficha_informconf_url', nullable: true }) fichaInformconfUrl: string;
+  @Column({ name: 'ficha_infocheck_url',  nullable: true }) fichaInfocheckUrl: string;
+
   // Bitácora interna de la operación (jsonb array de eventos)
   @Column({ type: 'jsonb', default: '[]' })             bitacora: any[];
 

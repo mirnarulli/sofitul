@@ -7,6 +7,48 @@ import { formatGs, formatDate } from '../../utils/formatters';
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') ?? 'http://localhost:3002';
 
+// ── Sub-componente: upload de ficha ──────────────────────────────────────────
+function FichaUpload({ label, url, uploading, inputRef, onChange, inputId, apiBase }: {
+  label: string;
+  url?: string;
+  uploading: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  inputId: string;
+  apiBase: string;
+}) {
+  return (
+    <div className={`rounded-xl border-2 p-4 flex flex-col gap-3 transition-colors ${url ? 'border-green-300 bg-green-50' : 'border-dashed border-gray-300 bg-gray-50'}`}>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-gray-700">{label}</span>
+        {url && <span className="text-xs text-green-600 font-medium">✔ Cargado</span>}
+      </div>
+
+      {url ? (
+        <div className="flex gap-2">
+          <a href={`${apiBase}${url}`} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-green-700 border border-green-400 rounded-lg hover:bg-green-100 font-medium">
+            <ExternalLink size={12} /> Ver documento
+          </a>
+          <label htmlFor={inputId}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-100 font-medium ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Upload size={12} /> Reemplazar
+          </label>
+        </div>
+      ) : (
+        <label htmlFor={inputId}
+          className={`flex items-center justify-center gap-2 px-4 py-3 text-sm text-gray-500 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+          <Upload size={16} />
+          {uploading ? 'Subiendo...' : 'Subir PDF / imagen'}
+        </label>
+      )}
+
+      <input ref={inputRef} id={inputId} type="file" accept=".pdf,.jpg,.jpeg,.png"
+        onChange={onChange} className="hidden" />
+    </div>
+  );
+}
+
 export default function OperacionDetalle() {
   const { id }   = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -18,10 +60,16 @@ export default function OperacionDetalle() {
   const [saving,  setSaving]  = useState(false);
 
   // Contrato TeDescuento
-  const [nroContrato,     setNroContrato]     = useState('');
-  const [savingContrato,  setSavingContrato]  = useState(false);
-  const [uploadingFile,   setUploadingFile]   = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [nroContrato,        setNroContrato]        = useState('');
+  const [savingContrato,     setSavingContrato]      = useState(false);
+  const [uploadingFile,      setUploadingFile]       = useState(false);
+  const fileInputRef         = useRef<HTMLInputElement>(null);
+
+  // Fichas de análisis
+  const [uploadingInformconf, setUploadingInformconf] = useState(false);
+  const [uploadingInfocheck,  setUploadingInfocheck]  = useState(false);
+  const informconfRef        = useRef<HTMLInputElement>(null);
+  const infocheckRef         = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -53,13 +101,24 @@ export default function OperacionDetalle() {
     const file = e.target.files?.[0];
     if (!file || !id) return;
     setUploadingFile(true);
-    try {
-      const updated = await operacionesApi.uploadContrato(id, file);
-      setOp(updated);
-    } catch { } finally {
-      setUploadingFile(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    try { const updated = await operacionesApi.uploadContrato(id, file); setOp(updated); }
+    catch { } finally { setUploadingFile(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
+  };
+
+  const handleUploadInformconf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    setUploadingInformconf(true);
+    try { const updated = await operacionesApi.uploadFichaInformconf(id, file); setOp(updated); }
+    catch { } finally { setUploadingInformconf(false); if (informconfRef.current) informconfRef.current.value = ''; }
+  };
+
+  const handleUploadInfocheck = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    setUploadingInfocheck(true);
+    try { const updated = await operacionesApi.uploadFichaInfocheck(id, file); setOp(updated); }
+    catch { } finally { setUploadingInfocheck(false); if (infocheckRef.current) infocheckRef.current.value = ''; }
   };
 
   if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
@@ -178,6 +237,40 @@ export default function OperacionDetalle() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Fichas de análisis — solo en Descuento de Cheque */}
+      {op.tipoOperacion === 'DESCUENTO_CHEQUE' && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+            Documentos de Análisis
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* INFORMCONF */}
+            <FichaUpload
+              label="Ficha INFORMCONF"
+              url={op.fichaInformconfUrl}
+              uploading={uploadingInformconf}
+              inputRef={informconfRef}
+              onChange={handleUploadInformconf}
+              inputId="upload-informconf"
+              apiBase={API_BASE}
+            />
+
+            {/* INFOCHECK */}
+            <FichaUpload
+              label="Ficha INFOCHECK"
+              url={op.fichaInfocheckUrl}
+              uploading={uploadingInfocheck}
+              inputRef={infocheckRef}
+              onChange={handleUploadInfocheck}
+              inputId="upload-infocheck"
+              apiBase={API_BASE}
+            />
+
           </div>
         </div>
       )}

@@ -181,12 +181,19 @@ export class OperacionesService {
   }
 
   // ── Contrato TeDescuento ──────────────────────────────────────────────────
-  async actualizarContrato(id: string, data: { nroContratoTeDescuento?: string; contratoTeDescuentoUrl?: string }) {
+  async actualizarContrato(id: string, data: {
+    nroContratoTeDescuento?: string;
+    contratoTeDescuentoUrl?: string;
+    fichaInformconfUrl?: string;
+    fichaInfocheckUrl?: string;
+  }) {
     const op = await this.operRepo.findOne({ where: { id } });
     if (!op) throw new NotFoundException('Operación no encontrada');
-    const update: any = {};
+    const update: Partial<Operacion> = {};
     if (data.nroContratoTeDescuento !== undefined) update.nroContratoTeDescuento = data.nroContratoTeDescuento;
-    if (data.contratoTeDescuentoUrl !== undefined) update.contratoTeDescuentoUrl = data.contratoTeDescuentoUrl;
+    if (data.contratoTeDescuentoUrl  !== undefined) update.contratoTeDescuentoUrl  = data.contratoTeDescuentoUrl;
+    if (data.fichaInformconfUrl      !== undefined) update.fichaInformconfUrl      = data.fichaInformconfUrl;
+    if (data.fichaInfocheckUrl       !== undefined) update.fichaInfocheckUrl       = data.fichaInfocheckUrl;
     await this.operRepo.update(id, update);
     return this.findById(id);
   }

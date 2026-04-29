@@ -19,6 +19,18 @@ export const operacionesApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then(r => r.data);
   },
+  uploadFichaInformconf: (id: string, file: File) => {
+    const fd = new FormData(); fd.append('file', file);
+    return api.post(`/operaciones/${id}/ficha-informconf/upload`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  },
+  uploadFichaInfocheck: (id: string, file: File) => {
+    const fd = new FormData(); fd.append('file', file);
+    return api.post(`/operaciones/${id}/ficha-infocheck/upload`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  },
 };
 
 export const cobranzasApi = {
