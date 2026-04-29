@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useVersionCheck } from './hooks/useVersionCheck';
 import ProtectedRoute from './components/ProtectedRoute';
+import { LogosProvider } from './context/LogosContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import RecuperarPassword from './pages/RecuperarPassword';
@@ -12,6 +13,7 @@ import NuevaOperacion from './pages/operaciones/NuevaOperacion';
 import OperacionDetalle from './pages/operaciones/OperacionDetalle';
 import SimuladorDescuento from './pages/operaciones/SimuladorDescuento';
 import PagarePreview      from './pages/operaciones/PagarePreview';
+import FichaOperacion     from './pages/operaciones/FichaOperacion';
 
 import Contactos from './pages/contactos/Contactos';
 import NuevaPersonaFisica from './pages/contactos/NuevaPersonaFisica';
@@ -41,6 +43,7 @@ export default function App() {
   useVersionCheck();
 
   return (
+    <LogosProvider>
     <BrowserRouter>
       <Routes>
         {/* Public */}
@@ -57,6 +60,7 @@ export default function App() {
           <Route path="/operaciones" element={<Operaciones />} />
           <Route path="/operaciones/simulador" element={<SimuladorDescuento />} />
           <Route path="/operaciones/:id/pagare" element={<PagarePreview />} />
+          <Route path="/operaciones/:id/solicitud" element={<FichaOperacion />} />
           <Route path="/operaciones/nueva" element={<NuevaOperacion />} />
           <Route path="/operaciones/:id" element={<OperacionDetalle />} />
 
@@ -94,5 +98,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
+    </LogosProvider>
   );
 }

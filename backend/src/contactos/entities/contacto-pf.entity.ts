@@ -7,22 +7,29 @@ export class ContactoPF {
   // Datos personales
   @Column({ name: 'numero_doc', unique: true })             numeroDoc: string;
   @Column({ name: 'tipo_doc_id', nullable: true })          tipoDocId: string;
+  @Column({ name: 'tipo_documento', nullable: true })       tipoDocumento: string;   // código: 'CI', 'RUC', etc.
   @Column({ name: 'primer_nombre' })                        primerNombre: string;
   @Column({ name: 'segundo_nombre', nullable: true })       segundoNombre: string;
   @Column({ name: 'primer_apellido' })                      primerApellido: string;
   @Column({ name: 'segundo_apellido', nullable: true })     segundoApellido: string;
   @Column({ name: 'fecha_nacimiento', type: 'date', nullable: true }) fechaNacimiento: string;
+  @Column({ nullable: true })                               sexo: string;            // 'M' | 'F'
   @Column({ nullable: true })                               nacionalidad: string;
   @Column({ name: 'pais_id', nullable: true })              paisId: string;
+  @Column({ name: 'pais_nacionalidad', nullable: true })    paisNacionalidad: string; // código país
+  @Column({ name: 'pais_residencia', nullable: true })      paisResidencia: string;
   @Column({ name: 'estado_civil', nullable: true })         estadoCivil: string;
   @Column({ name: 'conyuge_nombre', nullable: true })       conyugeNombre: string;
   @Column({ name: 'conyuge_doc', nullable: true })          conyugeDoc: string;
 
-  // Contacto
+  // Contacto y domicilio
   @Column({ nullable: true })                               telefono: string;
+  @Column({ nullable: true })                               celular: string;
   @Column({ nullable: true })                               email: string;
   @Column({ nullable: true })                               domicilio: string;
+  @Column({ nullable: true })                               barrio: string;
   @Column({ nullable: true })                               ciudad: string;
+  @Column({ nullable: true })                               departamento: string;
 
   // Actividad económica
   @Column({ name: 'situacion_laboral', nullable: true })    situacionLaboral: string;
@@ -58,6 +65,9 @@ export class ContactoPF {
   @Column({ name: 'nro_cuenta_acreditacion', nullable: true }) nroCuentaAcreditacion: string;
   @Column({ name: 'titular_cuenta_acreditacion', nullable: true }) titularCuentaAcreditacion: string;
   @Column({ name: 'alias_acreditacion', nullable: true })   aliasAcreditacion: string;
+
+  // Calificación interna
+  @Column({ name: 'calificacion_interna', nullable: true }) calificacionInterna: string; // 'A'|'B'|'C'|'D'
 
   @Column({ default: true })                                activo: boolean;
   @Column({ type: 'text', nullable: true })                 observaciones: string;

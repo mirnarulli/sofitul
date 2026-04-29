@@ -4,6 +4,31 @@ import { Repository } from 'typeorm';
 import { ContactoPF } from './entities/contacto-pf.entity';
 import { ContactoPJ } from './entities/contacto-pj.entity';
 import { Operacion } from '../operaciones/entities/operacion.entity';
+import { BitacoraService } from '../bitacora/bitacora.service';
+
+// Campos JSONB que no se deben comparar campo a campo (se registran como bloque)
+const JSONB_FIELDS = ['ingresos', 'egresos', 'activos', 'pasivos', 'referencias', 'beneficiariosFinales'];
+
+function diffObjects(before: any, after: any): { campo: string; anterior: any; nuevo: any }[] {
+  const cambios: { campo: string; anterior: any; nuevo: any }[] = [];
+  for (const key of Object.keys(after)) {
+    if (key === 'id' || key === 'createdAt' || key === 'updatedAt') continue;
+    const prev = before?.[key];
+    const next = after[key];
+    if (JSONB_FIELDS.includes(key)) {
+      if (JSON.stringify(prev) !== JSON.stringify(next)) {
+        cambios.push({ campo: key, anterior: prev, nuevo: next });
+      }
+    } else {
+      const prevStr = prev === null || prev === undefined ? '' : String(prev);
+      const nextStr = next === null || next === undefined ? '' : String(next);
+      if (prevStr !== nextStr) {
+        cambios.push({ campo: key, anterior: prev ?? null, nuevo: next ?? null });
+      }
+    }
+  }
+  return cambios;
+}
 
 @Injectable()
 export class ContactosService {
@@ -11,6 +36,7 @@ export class ContactosService {
     @InjectRepository(ContactoPF) private pfRepo: Repository<ContactoPF>,
     @InjectRepository(ContactoPJ) private pjRepo: Repository<ContactoPJ>,
     @InjectRepository(Operacion)  private operRepo: Repository<Operacion>,
+    private readonly bitacora: BitacoraService,
   ) {}
 
   // ── Persona Física ────────────────────────────────────────────────────────
@@ -31,11 +57,34 @@ export class ContactosService {
 
   findPFById(id: string) { return this.pfRepo.findOne({ where: { id } }); }
 
-  createPF(data: Partial<ContactoPF>) { return this.pfRepo.save(this.pfRepo.create(data)); }
+  async createPF(data: Partial<ContactoPF>, userId?: string, userNombre?: string) {
+    const pf = await this.pfRepo.save(this.pfRepo.create(data));
+    await this.bitacora.log({
+      usuarioId: userId, usuarioNombre: userNombre,
+      accion: 'CREAR', modulo: 'contactos',
+      entidad: 'ContactoPF', entidadId: pf.id,
+      detalle: { nombre: `${pf.primerNombre} ${pf.primerApellido}`, doc: pf.numeroDoc },
+    });
+    return pf;
+  }
 
-  async updatePF(id: string, data: Partial<ContactoPF>) {
+  async updatePF(id: string, data: Partial<ContactoPF>, userId?: string, userNombre?: string) {
+    const before = await this.pfRepo.findOne({ where: { id } });
+    if (!before) throw new NotFoundException('Contacto PF no encontrado');
+
     await this.pfRepo.update(id, data);
-    return this.pfRepo.findOne({ where: { id } });
+    const after = await this.pfRepo.findOne({ where: { id } });
+
+    const cambios = diffObjects(before, data);
+    if (cambios.length > 0) {
+      await this.bitacora.log({
+        usuarioId: userId, usuarioNombre: userNombre,
+        accion: 'ACTUALIZAR', modulo: 'contactos',
+        entidad: 'ContactoPF', entidadId: id,
+        detalle: { cambios },
+      });
+    }
+    return after;
   }
 
   // ── Persona Jurídica ──────────────────────────────────────────────────────
@@ -56,11 +105,34 @@ export class ContactosService {
 
   findPJById(id: string) { return this.pjRepo.findOne({ where: { id } }); }
 
-  createPJ(data: Partial<ContactoPJ>) { return this.pjRepo.save(this.pjRepo.create(data)); }
+  async createPJ(data: Partial<ContactoPJ>, userId?: string, userNombre?: string) {
+    const pj = await this.pjRepo.save(this.pjRepo.create(data));
+    await this.bitacora.log({
+      usuarioId: userId, usuarioNombre: userNombre,
+      accion: 'CREAR', modulo: 'contactos',
+      entidad: 'ContactoPJ', entidadId: pj.id,
+      detalle: { razonSocial: pj.razonSocial, ruc: pj.ruc },
+    });
+    return pj;
+  }
 
-  async updatePJ(id: string, data: Partial<ContactoPJ>) {
+  async updatePJ(id: string, data: Partial<ContactoPJ>, userId?: string, userNombre?: string) {
+    const before = await this.pjRepo.findOne({ where: { id } });
+    if (!before) throw new NotFoundException('Contacto PJ no encontrado');
+
     await this.pjRepo.update(id, data);
-    return this.pjRepo.findOne({ where: { id } });
+    const after = await this.pjRepo.findOne({ where: { id } });
+
+    const cambios = diffObjects(before, data);
+    if (cambios.length > 0) {
+      await this.bitacora.log({
+        usuarioId: userId, usuarioNombre: userNombre,
+        accion: 'ACTUALIZAR', modulo: 'contactos',
+        entidad: 'ContactoPJ', entidadId: id,
+        detalle: { cambios },
+      });
+    }
+    return after;
   }
 
   // ── Búsqueda unificada por documento ─────────────────────────────────────

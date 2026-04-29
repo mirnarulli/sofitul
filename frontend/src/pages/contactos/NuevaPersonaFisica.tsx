@@ -16,9 +16,9 @@ export default function NuevaPersonaFisica() {
     primerNombre: '', segundoNombre: '', primerApellido: '', segundoApellido: '',
     fechaNacimiento: '', sexo: '', estadoCivil: '',
     paisNacionalidad: 'PY', paisResidencia: 'PY',
-    direccion: '', barrio: '', ciudad: '', departamento: '',
+    domicilio: '', barrio: '', ciudad: '', departamento: '',
     telefono: '', celular: '', email: '',
-    profesion: '', empleador: '', cargoOcupacion: '',
+    profesion: '', empleador: '', cargo: '',
     esPep: false, esFatca: false,
   });
 
@@ -117,7 +117,7 @@ export default function NuevaPersonaFisica() {
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <Field label="Dirección">
-              <input value={form.direccion} onChange={e => set('direccion', e.target.value)} className={inputCls} placeholder="Calle, número" />
+              <input value={form.domicilio} onChange={e => set('domicilio', e.target.value)} className={inputCls} placeholder="Calle, número" />
             </Field>
           </div>
           <Field label="Barrio">
@@ -164,7 +164,7 @@ export default function NuevaPersonaFisica() {
             <input value={form.empleador} onChange={e => set('empleador', e.target.value)} className={inputCls} />
           </Field>
           <Field label="Cargo">
-            <input value={form.cargoOcupacion} onChange={e => set('cargoOcupacion', e.target.value)} className={inputCls} />
+            <input value={form.cargo} onChange={e => set('cargo', e.target.value)} className={inputCls} />
           </Field>
         </div>
       </div>

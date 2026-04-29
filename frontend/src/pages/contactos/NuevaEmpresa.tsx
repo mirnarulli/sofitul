@@ -15,7 +15,7 @@ export default function NuevaEmpresa() {
     razonSocial: '', nombreFantasia: '',
     paisConstitucion: 'PY', fechaConstitucion: '',
     actividadPrincipal: '',
-    direccion: '', barrio: '', ciudad: '', departamento: '',
+    domicilio: '', barrio: '', ciudad: '', departamento: '',
     telefono: '', email: '', sitioWeb: '',
     repLegalNombre: '', repLegalDoc: '', repLegalCargo: '',
     esPep: false,
@@ -88,7 +88,7 @@ export default function NuevaEmpresa() {
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <Field label="Dirección">
-              <input value={form.direccion} onChange={e => set('direccion', e.target.value)} className={inputCls} />
+              <input value={form.domicilio} onChange={e => set('domicilio', e.target.value)} className={inputCls} />
             </Field>
           </div>
           <Field label="Barrio"><input value={form.barrio} onChange={e => set('barrio', e.target.value)} className={inputCls} /></Field>

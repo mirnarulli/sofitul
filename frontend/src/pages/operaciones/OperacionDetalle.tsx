@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronDown } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, ChevronDown, Printer, FileText } from 'lucide-react';
 import { operacionesApi } from '../../services/operacionesApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
@@ -46,7 +46,17 @@ export default function OperacionDetalle() {
           <h1 className="text-2xl font-bold text-gray-900">{op.nroOperacion}</h1>
           <p className="text-gray-500 text-sm mt-0.5">{op.contactoNombre} — {op.contactoDoc}</p>
         </div>
-        <StatusBadge estado={op.estado} />
+        <div className="flex items-center gap-2">
+          <Link to={`/operaciones/${id}/solicitud`} target="_blank"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <FileText size={14}/> Liquidación
+          </Link>
+          <Link to={`/operaciones/${id}/pagare`} target="_blank"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <Printer size={14}/> Pagaré
+          </Link>
+          <StatusBadge estado={op.estado} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">

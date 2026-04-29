@@ -66,7 +66,16 @@ export class Operacion {
   @Column({ name: 'pagare_recibido', default: false })  pagareRecibido: boolean;
   @Column({ name: 'fecha_pagare', type: 'date', nullable: true }) fechaPagare: string;
 
-  // Analista y cobrador
+  // Comisión
+  @Column({ name: 'comision_monto', type: 'decimal', precision: 20, scale: 0, default: 0 }) comisionMonto: number;
+
+  // Producto financiero
+  @Column({ name: 'producto_id', nullable: true })      productoId: string;
+  @Column({ name: 'producto_nombre', nullable: true })  productoNombre: string;
+
+  // Vendedor / Analista / Cobrador
+  @Column({ name: 'vendedor_id', nullable: true })      vendedorId: string;
+  @Column({ name: 'vendedor_nombre', nullable: true })  vendedorNombre: string;
   @Column({ name: 'analista_id', nullable: true })      analistaId: string;
   @Column({ name: 'cobrador_id', nullable: true })      cobradorId: string;
 

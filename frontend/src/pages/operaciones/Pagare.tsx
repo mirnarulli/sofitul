@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { formatGs } from '../../utils/formatters';
+import { DocHeader, DocFooter } from '../../components/DocHeader';
+import DocBarcode from '../../components/DocBarcode';
 
 // ── Conversión número → letras (Guaraníes) ─────────────────────────────────
 
@@ -113,11 +115,20 @@ export default function Pagare({
       <div id="pagare-root" ref={ref}
         className="bg-white text-gray-900 font-serif text-[13px] leading-relaxed max-w-[210mm] mx-auto p-8 print:p-0 print:shadow-none shadow-lg">
 
-        {/* ── Encabezado ── */}
-        <div className="text-center mb-6">
-          <h1 className="text-xl font-bold tracking-widest uppercase border-b-2 border-gray-900 pb-2 inline-block px-8">
-            PAGARÉ A LA ORDEN
-          </h1>
+        {/* ── Header con logo ── */}
+        <DocHeader centered />
+        <hr className="border-t-2 border-gray-900 mb-4" />
+
+        {/* ── Título + Barcode ── */}
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex-1 text-center">
+            <h1 className="text-xl font-bold tracking-widest uppercase inline-block px-8">
+              PAGARÉ A LA ORDEN
+            </h1>
+          </div>
+          <div className="shrink-0">
+            <DocBarcode value={nroPagare || nroOperacion} height={38} width={1.4} fontSize={9} />
+          </div>
         </div>
 
         {/* ── Datos de cabecera ── */}
@@ -244,6 +255,9 @@ export default function Pagare({
           del año{' '}
           <span className="font-semibold underline decoration-dotted px-2">{anio}</span>.
         </div>
+
+        {/* ── Pie de página ── */}
+        <DocFooter nroDoc={nroPagare || nroOperacion} label="Pagaré N°" />
 
         {/* Botón imprimir (solo en pantalla) */}
         <div className="mt-6 text-center print:hidden">

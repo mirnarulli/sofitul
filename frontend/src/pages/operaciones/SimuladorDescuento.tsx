@@ -1,6 +1,10 @@
 import { useState, useCallback } from 'react';
-import { formatGs, calcularDias } from '../../utils/formatters';
+import { useNavigate } from 'react-router-dom';
+import { formatGs, calcularDias, formatDate } from '../../utils/formatters';
 import { contactosApi } from '../../services/contactosApi';
+import { operacionesApi } from '../../services/operacionesApi';
+import { DocHeader, DocFooter } from '../../components/DocHeader';
+import DocBarcode from '../../components/DocBarcode';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +53,8 @@ function calcularLiquidacion(cheques: Cheque[], fechaOperacion: string): Liquida
 // ── Componente principal ───────────────────────────────────────────────────
 
 export default function SimuladorDescuento() {
+  const navigate = useNavigate();
+
   // Encabezado
   const [fechaOperacion, setFechaOperacion] = useState(() => new Date().toISOString().slice(0, 10));
   const [nroOperacion,   setNroOperacion]   = useState('');
@@ -76,6 +82,10 @@ export default function SimuladorDescuento() {
   const [cuentaAcred,  setCuentaAcred]  = useState('');
   const [titularAcred, setTitularAcred] = useState('');
   const [aliasAcred,   setAliasAcred]   = useState('');
+
+  // Guardar operación
+  const [saving,    setSaving]    = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // ── Búsqueda de contactos ─────────────────────────────────────────────
 
@@ -133,30 +143,185 @@ export default function SimuladorDescuento() {
     setCheques(prev => prev.map(c => ({ ...c, tasaMensual: tasaGlobal })));
   };
 
+  // ── Guardar como Operación ────────────────────────────────────────────
+  const handleGuardarOperacion = async () => {
+    if (!clienteSel || netoDesembolsar <= 0) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      const nombre = clienteSel.label.split(' · ')[0];
+      const chequesData = cheques
+        .map((c, i) => ({ c, liq: liquidacion[i] }))
+        .filter(({ liq }) => liq.monto > 0)
+        .map(({ c, liq }) => ({
+          banco:            c.banco,
+          librador:         c.librador,
+          rucLibrador:      c.rucLibrador,
+          nroCheque:        c.nroCheque,
+          fechaVencimiento: c.vencimiento,
+          monto:            liq.monto,
+          tasaMensual:      parseFloat(c.tasaMensual) || 0,
+          interes:          liq.interes,
+          capitalInvertido: liq.amortizacion,
+          dias:             liq.dias,
+        }));
+
+      const body = {
+        tipoOperacion:    'DESCUENTO_CHEQUE',
+        contactoTipo:     clienteSel.tipo,
+        contactoId:       clienteSel.id,
+        contactoNombre:   nombre,
+        contactoDoc:      clienteSel.doc,
+        fechaOperacion,
+        canal,
+        montoTotal:       totalCheques,
+        interesTotal:     totalIntereses,
+        comisionMonto:    comisionNum,
+        netoDesembolsar,
+        capitalInvertido: netoDesembolsar,
+        cheques:          chequesData,
+      };
+
+      const op = await operacionesApi.create(body);
+      navigate(`/operaciones/${op.id}`);
+    } catch (err: any) {
+      setSaveError(err.response?.data?.message ?? 'Error al guardar la operación.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ── Render ────────────────────────────────────────────────────────────
 
+  // ── Helpers fmt para liquidación ─────────────────────────────────────
+  const fmtN = (n: number) => n > 0 ? n.toLocaleString('es-PY', { maximumFractionDigits: 0 }) : '-';
+  const MIN_ROWS = Math.max(5, cheques.filter(c => parseFloat(c.monto) > 0).length);
+  const chequesConDatos = cheques.filter(c => parseFloat(c.monto) > 0);
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6 print:text-sm">
+    <>
+    {/* ── Liquidación print-only ────────────────────────────────────────── */}
+    <div id="liquidacion-sim-root" className="hidden print:block"
+      style={{ background: 'white', color: '#111', fontFamily: 'Calibri, Arial, sans-serif', fontSize: '13px', padding: '0' }}>
+      <style>{`@media print { @page { size: A4 portrait; margin: 18mm 20mm; } }`}</style>
+
+      <DocHeader />
+      <hr style={{ border: 'none', borderTop: '2px solid #1e3a5f', marginBottom: '16px' }} />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+        <h1 style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '1px', margin: 0, alignSelf: 'center' }}>
+          LIQUIDACION DE PRESTAMO
+        </h1>
+        {nroOperacion && <DocBarcode value={nroOperacion} height={38} width={1.4} fontSize={9} />}
+      </div>
+
+      {/* Info */}
+      <table style={{ width: '100%', marginBottom: '24px', borderCollapse: 'collapse' }}>
+        <tbody>
+          <tr><td style={{ color: '#1e3a8a', fontWeight: '500', width: '200px', paddingBottom: '4px' }}>Cliente</td>
+              <td>{clienteSel?.label ?? '—'}</td></tr>
+          <tr><td style={{ color: '#1e3a8a', fontWeight: '500', paddingBottom: '4px' }}>Tipo de operación</td>
+              <td>Descuento de Cheques</td></tr>
+          <tr><td style={{ color: '#1e3a8a', fontWeight: '500', paddingBottom: '4px' }}>Fecha de la Operación</td>
+              <td>{formatDate(fechaOperacion)}</td></tr>
+        </tbody>
+      </table>
+
+      {/* Tabla cheques */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px', fontSize: '12px' }}>
+        <thead>
+          <tr style={{ background: '#808080', color: 'white' }}>
+            {['N°','IMPORTE CHEQUE','AMORTIZACION','INTERES','VENCIMIENTO','DIAS'].map(h => (
+              <th key={h} style={{ border: '1px solid #ccc', padding: '6px 10px', textAlign: h==='N°'?'center':'right', fontWeight: 'bold', fontSize: '11px', whiteSpace: 'nowrap' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: MIN_ROWS }, (_, i) => {
+            const liq = liquidacion[i];
+            const hasData = liq && liq.monto > 0;
+            return (
+              <tr key={i} style={{ background: i % 2 === 0 ? 'white' : '#f9f9f9' }}>
+                <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'center' }}>{i + 1}</td>
+                <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'right' }}>{hasData ? fmtN(liq.monto) : '-'}</td>
+                <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'right' }}>{hasData ? fmtN(liq.amortizacion) : '-'}</td>
+                <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'right' }}>{hasData ? fmtN(liq.interes) : '-'}</td>
+                <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'right' }}>{hasData && cheques[i]?.vencimiento ? formatDate(cheques[i].vencimiento) : '-'}</td>
+                <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'right' }}>{hasData ? liq.dias : ''}</td>
+              </tr>
+            );
+          })}
+          <tr style={{ fontWeight: 'bold', background: '#f0f0f0' }}>
+            <td style={{ border: '1px solid #ccc', padding: '5px 10px' }}>Total</td>
+            <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'right' }}>{fmtN(totalCheques)}</td>
+            <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'right' }}>{fmtN(totalCheques - totalIntereses)}</td>
+            <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'right' }}>{fmtN(totalIntereses)}</td>
+            <td style={{ border: '1px solid #ccc', padding: '5px 10px' }}></td>
+            <td style={{ border: '1px solid #ccc', padding: '5px 10px', textAlign: 'right' }}>
+              {chequesConDatos.length > 0 ? Math.max(...liquidacion.filter(l => l.monto > 0).map(l => l.dias)) : ''}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Resumen */}
+      <table style={{ borderCollapse: 'collapse', fontSize: '12px', minWidth: '280px' }}>
+        <tbody>
+          {[
+            { label: 'Monto de la Operación', value: fmtN(totalCheques), bold: false },
+            { label: 'Interés',               value: fmtN(totalIntereses), bold: false },
+            ...(comisionNum > 0 ? [{ label: 'Comisión Desembolso', value: fmtN(comisionNum), bold: false }] : []),
+            { label: 'Neto a Desembolsar',    value: fmtN(netoDesembolsar), bold: true },
+          ].map(r => (
+            <tr key={r.label}>
+              <td style={{ border: '1px solid #ccc', padding: '5px 12px', background: '#f5f5f5', fontWeight: r.bold ? 'bold' : 'normal' }}>{r.label}</td>
+              <td style={{ border: '1px solid #ccc', padding: '5px 12px', textAlign: 'right', fontWeight: r.bold ? 'bold' : 'normal', minWidth: '130px' }}>{r.value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <DocFooter nroDoc={nroOperacion || undefined} label="Liquidación N°" />
+    </div>
+
+    {/* ── CSS: al imprimir, ocultar UI y mostrar solo liquidación ── */}
+    <style>{`
+      @media print {
+        body > *:not(#liquidacion-sim-root) { display: none !important; }
+        #liquidacion-sim-root { display: block !important; }
+        @page { size: A4 portrait; margin: 18mm 20mm; }
+      }
+    `}</style>
+
+    {/* ── UI normal (oculta al imprimir) ────────────────────────────────── */}
+    <div className="max-w-6xl mx-auto space-y-6 print:hidden">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between print:hidden">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Simulador de Descuento de Cheques</h1>
           <p className="text-sm text-gray-500 mt-0.5">ONE TRADE S.A. — ONETBANK</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => window.print()}
-            className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-          >
-            🖨️ Imprimir
-          </button>
-          <button
-            disabled={!clienteSel || netoDesembolsar <= 0}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 flex items-center gap-2"
-          >
-            💾 Guardar como Operación
-          </button>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-2">
+            <button
+              onClick={() => window.print()}
+              disabled={netoDesembolsar <= 0}
+              className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-40"
+            >
+              🖨️ Imprimir Liquidación
+            </button>
+            <button
+              onClick={handleGuardarOperacion}
+              disabled={!clienteSel || netoDesembolsar <= 0 || saving}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 flex items-center gap-2"
+            >
+              {saving ? '⏳ Guardando...' : '💾 Guardar como Operación'}
+            </button>
+          </div>
+          {saveError && (
+            <p className="text-xs text-red-500">{saveError}</p>
+          )}
         </div>
       </div>
 
@@ -503,6 +668,7 @@ export default function SimuladorDescuento() {
           </div>
         </div>
       )}
-    </div>
+    </div>  {/* /UI normal */}
+    </>   /* /Fragment */
   );
 }

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   FileText, Users, Wallet, Settings, Coins, Globe, UserCog, LogOut,
   ChevronDown, ChevronRight, Menu, X, Landmark, BarChart2, TrendingUp,
-  ClipboardList, Bell, LayoutDashboard, Plus, Tag, Briefcase,
+  ClipboardList, Bell, LayoutDashboard, Plus, Tag, Briefcase, Calculator,
 } from 'lucide-react';
 import { useLogos } from '../context/LogosContext';
 import { canView, type Modulo } from '../utils/permisos';
@@ -20,9 +20,10 @@ const MODULES: NavModule[] = [
     moduloPermiso: 'operaciones',
     sections: [{
       items: [
-        { icon: BarChart2, label: 'Dashboard', path: '/operaciones/dashboard' },
-        { icon: Plus,      label: 'Nueva Operación', path: '/operaciones/nueva' },
-        { icon: FileText,  label: 'Todas las Operaciones', path: '/operaciones' },
+        { icon: BarChart2,   label: 'Dashboard',            path: '/operaciones/dashboard' },
+        { icon: Calculator,  label: 'Simulador Dto. Cheques', path: '/operaciones/simulador' },
+        { icon: Plus,        label: 'Nueva Operación',       path: '/operaciones/nueva' },
+        { icon: FileText,    label: 'Todas las Operaciones', path: '/operaciones' },
       ],
     }],
   },
