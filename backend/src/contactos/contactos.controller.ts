@@ -17,6 +17,9 @@ export class ContactosController {
   @Get('pf/:id/operaciones')
   getPFOperaciones(@Param('id') id: string) { return this.svc.getOperacionesByContacto('pf', id); }
 
+  @Get('pf/:id/vinculadas')
+  getVinculadas(@Param('id') id: string) { return this.svc.findEmpresasVinculadas(id); }
+
   @Get('pf/:id')
   findPFById(@Param('id') id: string) { return this.svc.findPFById(id); }
 

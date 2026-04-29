@@ -184,6 +184,16 @@ export class ContactosService {
     return after;
   }
 
+  // ── Empresas vinculadas a una PF (por rep_legal_doc) ─────────────────────
+  async findEmpresasVinculadas(pfId: string) {
+    const pf = await this.pfRepo.findOne({ where: { id: pfId } });
+    if (!pf) throw new NotFoundException('Contacto PF no encontrado');
+    return this.pjRepo.find({
+      where: { repLegalDoc: pf.numeroDoc },
+      order: { razonSocial: 'ASC' },
+    });
+  }
+
   // ── Búsqueda unificada por documento ─────────────────────────────────────
   async buscarPorDoc(doc: string): Promise<{ tipo: 'pf' | 'pj'; data: any } | null> {
     const pf = await this.findPFByDoc(doc);

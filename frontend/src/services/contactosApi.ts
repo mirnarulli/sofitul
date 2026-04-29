@@ -20,6 +20,10 @@ export const contactosApi = {
   // Operaciones por contacto
   getOperacionesByContacto: (tipo: 'pf' | 'pj', id: string) =>
     api.get(`/contactos/${tipo}/${id}/operaciones`).then(r => r.data),
+
+  // Empresas donde esta PF figura como rep. legal
+  getEmpresasVinculadas: (id: string) =>
+    api.get(`/contactos/pf/${id}/vinculadas`).then(r => r.data),
 };
 
 export const panelGlobalApi = {

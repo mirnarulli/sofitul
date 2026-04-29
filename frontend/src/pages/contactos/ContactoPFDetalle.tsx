@@ -168,9 +168,60 @@ function RefTable({ rows, onChange, editing }: {
   );
 }
 
+// ── Helpers de print ──────────────────────────────────────────────────────────
+
+const ESTADO_CIVIL_LABELS: Record<string, string> = {
+  SO: 'Soltero/a',  CA: 'Casado/a',  DI: 'Divorciado/a',
+  VI: 'Viudo/a',    ME: 'Menor de edad', UH: 'Unión de hecho',
+};
+const labelEC = (v?: string | null) => ESTADO_CIVIL_LABELS[v ?? ''] ?? v ?? '—';
+const labelSexo = (v?: string | null) => v === 'M' ? 'Masculino' : v === 'F' ? 'Femenino' : (v ?? '—');
+
+function SubTitulo({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="font-bold text-[9px] uppercase tracking-wider text-gray-700 border-b border-gray-700 pb-0.5 mb-1.5">
+      {children}
+    </p>
+  );
+}
+
+function Fila({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <tr>
+      <td className="text-gray-500 pr-2 py-0.5 align-top whitespace-nowrap">{label}</td>
+      <td className="font-medium py-0.5">{value || '—'}</td>
+    </tr>
+  );
+}
+
+function OpsTablePrint({ ops }: { ops: any[] }) {
+  return (
+    <table className="w-full text-[10px]">
+      <thead>
+        <tr className="border-b border-gray-300">
+          {['N° Op.', 'Tipo', 'Monto', 'Vencimiento', 'Estado'].map(h => (
+            <th key={h} className="text-left text-gray-500 font-semibold pb-0.5 pr-3">{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {ops.map(op => (
+          <tr key={op.id} className="border-b border-gray-100">
+            <td className="py-0.5 pr-3 font-mono">{op.nroOperacion}</td>
+            <td className="py-0.5 pr-3">{op.tipoOperacion === 'DESCUENTO_CHEQUE' ? 'Dto. Cheque' : 'Préstamo'}</td>
+            <td className="py-0.5 pr-3 font-mono">{formatGs(op.montoTotal)}</td>
+            <td className="py-0.5 pr-3">{formatDate(op.fechaVencimiento)}</td>
+            <td className="py-0.5">{op.estado}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ── Ficha print layout ────────────────────────────────────────────────────────
 
-function FichaImpresa({ pf, operaciones }: { pf: any; operaciones: any[] }) {
+function FichaImpresa({ pf, operaciones, empresas }: { pf: any; operaciones: any[]; empresas: any[] }) {
   const nombre = [pf.primerNombre, pf.segundoNombre, pf.primerApellido, pf.segundoApellido].filter(Boolean).join(' ');
   const ings   = (pf.ingresos  as MontoRow[] | null) ?? [];
   const egs    = (pf.egresos   as MontoRow[] | null) ?? [];
@@ -181,123 +232,184 @@ function FichaImpresa({ pf, operaciones }: { pf: any; operaciones: any[] }) {
   const totalA = actArr.reduce((s,r)=>s+Number(r.valor),0);
   const totalP = pasArr.reduce((s,r)=>s+Number(r.valor),0);
 
+  const opVigentes = operaciones.filter(o => ESTADOS_VIGENTES.includes(o.estado));
+  const opHistorial = operaciones.filter(o => !ESTADOS_VIGENTES.includes(o.estado));
+
   return (
-    <div id="ficha-print" className="hidden print:block bg-white text-gray-900 text-[11px] leading-relaxed p-0">
-      <style>{`@media print { @page { size: A4; margin: 12mm 15mm; } }`}</style>
-      <div className="text-center border-b-2 border-gray-900 pb-2 mb-3">
-        <h1 className="text-base font-bold tracking-wide uppercase">Ficha de Cliente — Persona Física</h1>
-        <p className="text-xs text-gray-500">ONE TRADE S.A. · Emitida: {new Date().toLocaleDateString('es-PY')}</p>
-      </div>
+    <div id="ficha-print" className="hidden print:block bg-white text-gray-900 leading-snug p-0">
+      <style>{`@media print { @page { size: A4; margin: 10mm 14mm; } }`}</style>
 
-      <div className="grid grid-cols-2 gap-x-6 mb-3">
+      {/* ── Encabezado ── */}
+      <div className="border-b-2 border-gray-900 pb-2 mb-3 flex items-start justify-between">
         <div>
-          <p className="font-bold text-sm uppercase border-b mb-1">Identificación</p>
-          <table className="w-full text-xs"><tbody>
-            <tr><td className="pr-2 text-gray-500 w-32">Nombre completo</td><td className="font-medium">{nombre}</td></tr>
-            <tr><td className="text-gray-500">Documento</td><td>{pf.tipoDocumento ?? 'CI'} {pf.numeroDoc}</td></tr>
-            <tr><td className="text-gray-500">Nacimiento</td><td>{formatDate(pf.fechaNacimiento)}</td></tr>
-            <tr><td className="text-gray-500">Sexo</td><td>{pf.sexo === 'M' ? 'Masculino' : pf.sexo === 'F' ? 'Femenino' : '—'}</td></tr>
-            <tr><td className="text-gray-500">Estado civil</td><td>{pf.estadoCivil ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Nacionalidad</td><td>{pf.paisNacionalidad ?? pf.nacionalidad ?? '—'}</td></tr>
-          </tbody></table>
+          <h1 className="text-sm font-bold uppercase tracking-wide">Ficha de Cliente — Persona Física</h1>
+          <p className="text-[10px] text-gray-500 mt-0.5">ONE TRADE S.A. · Emitida: {new Date().toLocaleDateString('es-PY')}</p>
         </div>
-        <div>
-          <p className="font-bold text-sm uppercase border-b mb-1">Contacto y Domicilio</p>
-          <table className="w-full text-xs"><tbody>
-            <tr><td className="pr-2 text-gray-500 w-28">Teléfono</td><td>{pf.telefono ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Celular</td><td>{pf.celular ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Email</td><td>{pf.email ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Dirección</td><td>{[pf.domicilio,pf.barrio,pf.ciudad,pf.departamento].filter(Boolean).join(', ') || '—'}</td></tr>
-          </tbody></table>
+        <div className="text-right text-[10px]">
+          {pf.calificacionInterna && (
+            <span className="font-bold text-xs">Cal. interna: {pf.calificacionInterna}</span>
+          )}
+          {pf.esPep   && <p className="text-orange-600 font-bold mt-0.5">⚠ PEP</p>}
+          {pf.esFatca && <p className="text-purple-600 font-bold mt-0.5">⚠ FATCA</p>}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-6 mb-3">
+      {/* ── Nombre / CI prominente ── */}
+      <div className="bg-gray-50 border border-gray-300 rounded px-3 py-1.5 mb-3 flex items-center justify-between">
         <div>
-          <p className="font-bold text-sm uppercase border-b mb-1">Actividad</p>
-          <table className="w-full text-xs"><tbody>
-            <tr><td className="pr-2 text-gray-500 w-32">Empleador</td><td>{pf.empleador ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Cargo</td><td>{pf.cargo ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Profesión</td><td>{pf.profesion ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Antigüedad</td><td>{pf.antiguedadCargo ?? '—'}</td></tr>
+          <p className="font-bold text-sm">{nombre}</p>
+          <p className="text-[10px] text-gray-500">{pf.tipoDocumento ?? 'CI'} N° {pf.numeroDoc}</p>
+        </div>
+        <div className="text-[10px] text-gray-500 text-right">
+          <p>{labelEC(pf.estadoCivil)} · {labelSexo(pf.sexo)}</p>
+          <p>Nac.: {formatDate(pf.fechaNacimiento) ?? '—'}</p>
+        </div>
+      </div>
+
+      {/* ── Sección 1: Datos básicos ── */}
+      <div className="grid grid-cols-2 gap-x-8 mb-3 text-[10px]">
+        <div>
+          <SubTitulo>Identificación</SubTitulo>
+          <table className="w-full"><tbody>
+            <Fila label="Nacionalidad"  value={pf.paisNacionalidad ?? pf.nacionalidad} />
+            <Fila label="País residencia" value={pf.paisResidencia} />
+            {pf.conyugeNombre && <Fila label="Cónyuge" value={`${pf.conyugeNombre}${pf.conyugeDoc ? ` · CI ${pf.conyugeDoc}` : ''}`} />}
           </tbody></table>
         </div>
         <div>
-          <p className="font-bold text-sm uppercase border-b mb-1">Cuenta Bancaria</p>
-          <table className="w-full text-xs"><tbody>
-            <tr><td className="pr-2 text-gray-500 w-28">Banco</td><td>{pf.bancoAcreditacion ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Cuenta</td><td>{pf.nroCuentaAcreditacion ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Titular</td><td>{pf.titularCuentaAcreditacion ?? '—'}</td></tr>
-            <tr><td className="text-gray-500">Alias</td><td>{pf.aliasAcreditacion ?? '—'}</td></tr>
+          <SubTitulo>Domicilio y Contacto</SubTitulo>
+          <table className="w-full"><tbody>
+            <Fila label="Dirección" value={[pf.domicilio, pf.barrio, pf.ciudad, pf.departamento].filter(Boolean).join(', ') || undefined} />
+            <Fila label="Celular"   value={pf.celular} />
+            <Fila label="Teléfono"  value={pf.telefono} />
+            <Fila label="Email"     value={pf.email} />
           </tbody></table>
         </div>
       </div>
 
+      {/* ── Sección 2: Actividad + Cuenta ── */}
+      <div className="grid grid-cols-2 gap-x-8 mb-3 text-[10px]">
+        <div>
+          <SubTitulo>Actividad Económica</SubTitulo>
+          <table className="w-full"><tbody>
+            <Fila label="Profesión"   value={pf.profesion} />
+            <Fila label="Empleador"   value={pf.empleador} />
+            <Fila label="Cargo"       value={pf.cargo} />
+            <Fila label="Situación"   value={pf.situacionLaboral} />
+            <Fila label="Antigüedad"  value={pf.antiguedadCargo} />
+          </tbody></table>
+        </div>
+        <div>
+          <SubTitulo>Cuenta para Acreditación</SubTitulo>
+          <table className="w-full"><tbody>
+            <Fila label="Banco"    value={pf.bancoAcreditacion} />
+            <Fila label="N° Cta."  value={pf.nroCuentaAcreditacion} />
+            <Fila label="Titular"  value={pf.titularCuentaAcreditacion} />
+            <Fila label="Alias"    value={pf.aliasAcreditacion} />
+          </tbody></table>
+        </div>
+      </div>
+
+      {/* ── Sección 3: Capacidad de pago (si tiene datos) ── */}
       {(ings.length > 0 || egs.length > 0) && (
-        <div className="grid grid-cols-2 gap-x-6 mb-3">
-          <div>
-            <p className="font-bold text-sm uppercase border-b mb-1">Ingresos</p>
-            {ings.map((r,i)=><div key={i} className="flex justify-between text-xs"><span>{r.concepto}</span><span>{formatGs(r.monto)}</span></div>)}
-            <div className="flex justify-between text-xs font-bold border-t mt-0.5 pt-0.5"><span>Total</span><span>{formatGs(totalI)}</span></div>
+        <div className="mb-3 text-[10px]">
+          <SubTitulo>Capacidad de Pago</SubTitulo>
+          <div className="grid grid-cols-2 gap-x-8">
+            <div>
+              {ings.map((r,i)=>(
+                <div key={i} className="flex justify-between border-b border-gray-50 py-0.5">
+                  <span className="text-gray-600">{r.concepto}</span><span className="font-mono">{formatGs(r.monto)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between font-bold pt-0.5 border-t border-gray-300 mt-0.5">
+                <span>Total ingresos</span><span className="font-mono text-green-700">{formatGs(totalI)}</span>
+              </div>
+            </div>
+            <div>
+              {egs.map((r,i)=>(
+                <div key={i} className="flex justify-between border-b border-gray-50 py-0.5">
+                  <span className="text-gray-600">{r.concepto}</span><span className="font-mono">{formatGs(r.monto)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between font-bold pt-0.5 border-t border-gray-300 mt-0.5">
+                <span>Total egresos</span><span className="font-mono text-red-600">{formatGs(totalE)}</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="font-bold text-sm uppercase border-b mb-1">Egresos</p>
-            {egs.map((r,i)=><div key={i} className="flex justify-between text-xs"><span>{r.concepto}</span><span>{formatGs(r.monto)}</span></div>)}
-            <div className="flex justify-between text-xs font-bold border-t mt-0.5 pt-0.5"><span>Total</span><span>{formatGs(totalE)}</span></div>
+          <div className="flex gap-8 mt-1.5 bg-gray-50 border border-gray-200 rounded px-3 py-1.5">
+            <div className="text-center">
+              <p className="text-[9px] text-gray-500">Capacidad de pago</p>
+              <p className={`font-bold text-xs font-mono ${totalI-totalE>=0?'text-green-700':'text-red-700'}`}>{formatGs(totalI-totalE)}</p>
+            </div>
+            {(actArr.length > 0 || pasArr.length > 0) && (
+              <div className="text-center">
+                <p className="text-[9px] text-gray-500">Patrimonio neto</p>
+                <p className="font-bold text-xs font-mono text-blue-700">{formatGs(totalA-totalP)}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {(actArr.length > 0 || pasArr.length > 0) && (
-        <div className="grid grid-cols-2 gap-x-6 mb-3">
-          <div>
-            <p className="font-bold text-sm uppercase border-b mb-1">Activos</p>
-            {actArr.map((r,i)=><div key={i} className="flex justify-between text-xs"><span>{r.descripcion}</span><span>{formatGs(r.valor)}</span></div>)}
-            <div className="flex justify-between text-xs font-bold border-t mt-0.5 pt-0.5"><span>Total</span><span>{formatGs(totalA)}</span></div>
-          </div>
-          <div>
-            <p className="font-bold text-sm uppercase border-b mb-1">Pasivos</p>
-            {pasArr.map((r,i)=><div key={i} className="flex justify-between text-xs"><span>{r.descripcion}</span><span>{formatGs(r.valor)}</span></div>)}
-            <div className="flex justify-between text-xs font-bold border-t mt-0.5 pt-0.5"><span>Total</span><span>{formatGs(totalP)}</span></div>
-          </div>
-        </div>
-      )}
-
-      {(ings.length > 0 || egs.length > 0) && (
-        <div className="border rounded p-2 mb-3 bg-gray-50">
-          <div className="grid grid-cols-3 gap-4 text-xs text-center">
-            <div><p className="text-gray-500">Capacidad de pago</p><p className="font-bold text-sm">{formatGs(totalI - totalE)}</p></div>
-            <div><p className="text-gray-500">Patrimonio neto</p><p className="font-bold text-sm">{formatGs(totalA - totalP)}</p></div>
-            <div><p className="text-gray-500">Calificación</p><p className="font-bold text-sm">{pf.calificacionInterna || '—'}</p></div>
-          </div>
-        </div>
-      )}
-
-      {operaciones.length > 0 && (
-        <div>
-          <p className="font-bold text-sm uppercase border-b mb-1">Operaciones ({operaciones.length})</p>
-          <table className="w-full text-xs">
-            <thead><tr className="border-b">
-              <th className="text-left pr-2">N° Op.</th><th className="text-left pr-2">Tipo</th>
-              <th className="text-right pr-2">Monto</th><th className="text-left pr-2">Vencimiento</th>
-              <th className="text-left">Estado</th>
-            </tr></thead>
-            <tbody>{operaciones.map(op=>(
-              <tr key={op.id} className="border-b border-gray-100">
-                <td className="font-mono pr-2 py-0.5">{op.nroOperacion}</td>
-                <td className="pr-2">{op.tipoOperacion==='DESCUENTO_CHEQUE'?'Dto. Cheque':'Préstamo'}</td>
-                <td className="text-right pr-2">{formatGs(op.montoTotal)}</td>
-                <td className="pr-2">{formatDate(op.fechaVencimiento)}</td>
-                <td>{op.estado}</td>
+      {/* ── Sección 4: Empresas vinculadas ── */}
+      <div className="mb-3 text-[10px]">
+        <SubTitulo>Empresas Vinculadas</SubTitulo>
+        {empresas.length === 0 ? (
+          <p className="text-gray-400 italic">Sin empresas vinculadas como representante legal.</p>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-300">
+                {['Razón Social', 'RUC', 'Cargo', 'Actividad', 'Tel.'].map(h => (
+                  <th key={h} className="text-left text-gray-500 font-semibold pb-0.5 pr-2">{h}</th>
+                ))}
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody>
+              {empresas.map(e => (
+                <tr key={e.id} className="border-b border-gray-50">
+                  <td className="py-0.5 pr-2 font-medium">{e.razonSocial}</td>
+                  <td className="py-0.5 pr-2 font-mono">{e.ruc}</td>
+                  <td className="py-0.5 pr-2">{e.repLegalCargo ?? '—'}</td>
+                  <td className="py-0.5 pr-2">{e.actividadPrincipal ?? '—'}</td>
+                  <td className="py-0.5">{e.telefono ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
+        )}
+      </div>
+
+      {/* ── Sección 5: Operaciones vigentes ── */}
+      {opVigentes.length > 0 && (
+        <div className="mb-3 text-[10px]">
+          <SubTitulo>Operaciones Vigentes ({opVigentes.length})</SubTitulo>
+          <OpsTablePrint ops={opVigentes} />
         </div>
       )}
 
-      <div className="mt-8 grid grid-cols-3 gap-8 text-center">
-        {['Firma del Cliente','Firma del Representante','Sello / Firma ONE TRADE'].map(l=>(
-          <div key={l}><div className="border-b border-gray-700 h-10 mb-1"/><p className="text-xs text-gray-500">{l}</p></div>
+      {/* ── Sección 6: Historial ── */}
+      {opHistorial.length > 0 && (
+        <div className="mb-3 text-[10px]">
+          <SubTitulo>Historial de Operaciones ({opHistorial.length})</SubTitulo>
+          <OpsTablePrint ops={opHistorial} />
+        </div>
+      )}
+
+      {operaciones.length === 0 && (
+        <div className="mb-3 text-[10px]">
+          <SubTitulo>Operaciones</SubTitulo>
+          <p className="text-gray-400 italic">Sin operaciones registradas.</p>
+        </div>
+      )}
+
+      {/* ── Firmas ── */}
+      <div className="mt-6 pt-3 border-t border-gray-300 grid grid-cols-3 gap-8 text-center text-[10px]">
+        {['Firma del Cliente', 'Firma del Representante', 'Sello / Firma ONE TRADE'].map(l => (
+          <div key={l}>
+            <div className="border-b border-gray-700 h-10 mb-1" />
+            <p className="text-gray-500">{l}</p>
+          </div>
         ))}
       </div>
     </div>
@@ -315,6 +427,7 @@ export default function ContactoPFDetalle() {
 
   const [pf,         setPf]         = useState<any>(null);
   const [operaciones,setOperaciones]= useState<any[]>([]);
+  const [empresas,   setEmpresas]   = useState<any[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [tab,        setTab]        = useState<Tab>('Datos Personales');
   const [editing,    setEditing]    = useState(false);
@@ -332,7 +445,14 @@ export default function ContactoPFDetalle() {
       panelGlobalApi.getTiposDocumento(),
       panelGlobalApi.getPaises(),
     ])
-      .then(([p, ops, td, ps]) => { setPf(p); setOperaciones(ops); setTiposDoc(td); setPaises(ps); })
+      .then(([p, ops, td, ps]) => {
+        setPf(p);
+        setOperaciones(ops);
+        setTiposDoc(td);
+        setPaises(ps);
+        // Cargar empresas vinculadas (no bloquea si falla)
+        contactosApi.getEmpresasVinculadas(id).then(setEmpresas).catch(() => {});
+      })
       .catch(() => navigate('/contactos'))
       .finally(() => setLoading(false));
   }, [id, navigate]);
@@ -440,6 +560,44 @@ export default function ContactoPFDetalle() {
             {data.declaracionFirmada && <span className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full">✓ Declaración firmada</span>}
           </div>
           {data.observaciones && <p className="text-sm text-gray-600 mt-2">{data.observaciones}</p>}
+        </div>
+
+        {/* Empresas vinculadas (solo vista, no en modo edición) */}
+        <div className="col-span-1 lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            Empresas Vinculadas
+            {empresas.length > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-bold">{empresas.length}</span>
+            )}
+          </h3>
+          {empresas.length === 0 ? (
+            <p className="text-sm text-gray-400 italic">Sin empresas vinculadas como representante legal.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {['Razón Social', 'RUC', 'Cargo', 'Actividad', ''].map(h => (
+                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {empresas.map((e: any) => (
+                    <tr key={e.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium">{e.razonSocial}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{e.ruc}</td>
+                      <td className="px-3 py-2 text-gray-600">{e.repLegalCargo ?? '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 text-xs">{e.actividadPrincipal ?? '—'}</td>
+                      <td className="px-3 py-2">
+                        <Link to={`/contactos/empresas/${e.id}`} className="text-blue-600 hover:underline text-xs">Ver</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -734,7 +892,7 @@ export default function ContactoPFDetalle() {
   return (
     <>
       {/* Print-only ficha */}
-      <FichaImpresa pf={pf} operaciones={operaciones}/>
+      <FichaImpresa pf={pf} operaciones={operaciones} empresas={empresas} />
 
       {/* Screen layout */}
       <div className="print:hidden p-5 max-w-6xl mx-auto">
