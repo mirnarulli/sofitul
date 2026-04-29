@@ -12,8 +12,10 @@ export default function Contactos() {
 
   useEffect(() => {
     setLoading(true);
-    const fn = tab === 'pf' ? contactosApi.getPersonasFisicas : contactosApi.getEmpresas;
-    fn({ q: q || undefined })
+    const promise = tab === 'pf'
+      ? contactosApi.getPersonasFisicas(q || undefined)
+      : contactosApi.getEmpresas({ q: q || undefined });
+    promise
       .then(r => setData(r.data ?? r))
       .catch(() => {})
       .finally(() => setLoading(false));

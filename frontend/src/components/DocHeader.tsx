@@ -13,7 +13,7 @@ interface DocHeaderProps {
 
 export function DocHeader({ subtitle, centered = false }: DocHeaderProps) {
   const { logos } = useLogos();
-  const logoUrl   = logos?.logo_barra_menu_claro ?? logos?.logo ?? null;
+  const logoUrl   = logos?.logo_barra_menu_claro ?? logos?.logo_iso ?? null;
 
   if (centered) {
     return (
