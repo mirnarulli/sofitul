@@ -6,3 +6,5 @@ export { Pais }         from './pais.entity';
 export { TipoDocumento } from './tipo-documento.entity';
 export { Configuracion } from './configuracion.entity';
 export { Frase }        from './frase.entity';
+export { Canal }              from './canal.entity';
+export { ProductoFinanciero } from './producto-financiero.entity';

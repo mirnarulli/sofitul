@@ -10,6 +10,8 @@ import Dashboard from './pages/Dashboard';
 import Operaciones from './pages/operaciones/Operaciones';
 import NuevaOperacion from './pages/operaciones/NuevaOperacion';
 import OperacionDetalle from './pages/operaciones/OperacionDetalle';
+import SimuladorDescuento from './pages/operaciones/SimuladorDescuento';
+import PagarePreview      from './pages/operaciones/PagarePreview';
 
 import Contactos from './pages/contactos/Contactos';
 import NuevaPersonaFisica from './pages/contactos/NuevaPersonaFisica';
@@ -53,6 +55,8 @@ export default function App() {
 
           {/* Operaciones */}
           <Route path="/operaciones" element={<Operaciones />} />
+          <Route path="/operaciones/simulador" element={<SimuladorDescuento />} />
+          <Route path="/operaciones/:id/pagare" element={<PagarePreview />} />
           <Route path="/operaciones/nueva" element={<NuevaOperacion />} />
           <Route path="/operaciones/:id" element={<OperacionDetalle />} />
 

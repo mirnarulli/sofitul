@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase } from './entities';
+import { Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero } from './entities';
 import { ContactoPF } from './contactos/entities/contacto-pf.entity';
 import { ContactoPJ } from './contactos/entities/contacto-pj.entity';
 import { Operacion } from './operaciones/entities/operacion.entity';
@@ -21,6 +21,8 @@ import { PaisesModule }            from './paises/paises.module';
 import { TiposDocumentoModule }    from './tipos-documento/tipos-documento.module';
 import { ConfiguracionModule }     from './configuracion/configuracion.module';
 import { FrasesModule }            from './frases/frases.module';
+import { CanalesModule }               from './canales/canales.module';
+import { ProductosFinancierosModule }  from './productos-financieros/productos-financieros.module';
 import { ContactosModule }         from './contactos/contactos.module';
 import { OperacionesModule }       from './operaciones/operaciones.module';
 import { CobranzasModule }         from './cobranzas/cobranzas.module';
@@ -40,7 +42,7 @@ import { DashboardsModule }        from './dashboards/dashboards.module';
       password: process.env.DB_PASSWORD ?? (() => { throw new Error('DB_PASSWORD no configurado'); })(),
       database: process.env.DB_NAME     ?? (() => { throw new Error('DB_NAME no configurado'); })(),
       entities: [
-        Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase,
+        Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero,
         ContactoPF, ContactoPJ,
         Operacion, ChequeDetalle, Cuota, EstadoOperacion,
       ],
@@ -56,6 +58,8 @@ import { DashboardsModule }        from './dashboards/dashboards.module';
     TiposDocumentoModule,
     ConfiguracionModule,
     FrasesModule,
+    CanalesModule,
+    ProductosFinancierosModule,
     ContactosModule,
     OperacionesModule,
     CobranzasModule,

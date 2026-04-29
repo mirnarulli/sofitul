@@ -4,12 +4,14 @@ export const contactosApi = {
   buscarPorDoc: (doc: string) => api.get(`/contactos/buscar-doc?doc=${doc}`).then(r => r.data),
 
   // Persona Física
-  getPersonasFisicas:    (params?: any)             => api.get('/contactos/pf', { params }).then(r => r.data),
+  getPersonasFisicas:    (q?: string)               => api.get('/contactos/pf', { params: { q } }).then(r => r.data),
   getPersonaFisicaById:  (id: string)               => api.get(`/contactos/pf/${id}`).then(r => r.data),
   crearPersonaFisica:    (body: any)                => api.post('/contactos/pf', body).then(r => r.data),
   actualizarPersonaFisica: (id: string, body: any)  => api.put(`/contactos/pf/${id}`, body).then(r => r.data),
 
   // Persona Jurídica
+  getPersonasJuridicas:    (q?: string)             => api.get('/contactos/pj', { params: { q } }).then(r => r.data),
+  getPersonaJuridicaById:  (id: string)             => api.get(`/contactos/pj/${id}`).then(r => r.data),
   getEmpresas:    (params?: any)             => api.get('/contactos/pj', { params }).then(r => r.data),
   getEmpresaById: (id: string)               => api.get(`/contactos/pj/${id}`).then(r => r.data),
   crearEmpresa:   (body: any)                => api.post('/contactos/pj', body).then(r => r.data),
@@ -48,6 +50,19 @@ export const panelGlobalApi = {
   updateConfiguracion:     (clave: string, b: any) => api.put(`/configuracion/${clave}`, b).then(r => r.data),
 
   getLogos:          ()                        => api.get('/configuracion/logos').then(r => r.data),
+
+  // Canales
+  getCanales:        ()                        => api.get('/canales').then(r => r.data),
+  getCanalesActivos: ()                        => api.get('/canales/activos').then(r => r.data),
+  createCanal:       (b: any)                  => api.post('/canales', b).then(r => r.data),
+  updateCanal:       (id: string, b: any)      => api.put(`/canales/${id}`, b).then(r => r.data),
+  deleteCanal:       (id: string)              => api.delete(`/canales/${id}`).then(r => r.data),
+
+  // Productos Financieros
+  getProductos:      ()                        => api.get('/productos-financieros').then(r => r.data),
+  getProductosActivos: ()                      => api.get('/productos-financieros/activos').then(r => r.data),
+  createProducto:    (b: any)                  => api.post('/productos-financieros', b).then(r => r.data),
+  updateProducto:    (id: string, b: any)      => api.put(`/productos-financieros/${id}`, b).then(r => r.data),
 
   getFrases:         ()                        => api.get('/frases').then(r => r.data),
   getFraseDelDia:    ()                        => api.get('/frases/del-dia').then(r => r.data),
