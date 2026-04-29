@@ -28,6 +28,9 @@ Thumbs.db
 *.tar.gz
 *.tgz
 
+# Archivos locales / descargas
+*.pdf
+
 # Coverage
 coverage/
 
