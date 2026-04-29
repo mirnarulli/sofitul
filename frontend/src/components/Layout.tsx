@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   FileText, Users, Wallet, Settings, Coins, Globe, UserCog, LogOut,
   ChevronDown, ChevronRight, Menu, X, Landmark, BarChart2, TrendingUp,
-  ClipboardList, Bell, LayoutDashboard, Plus, Tag, Briefcase, Calculator,
+  ClipboardList, Bell, LayoutDashboard, Plus, Tag, Briefcase, Calculator, Package,
 } from 'lucide-react';
 import { useLogos } from '../context/LogosContext';
 import { canView, type Modulo } from '../utils/permisos';
@@ -74,11 +74,12 @@ const MODULES: NavModule[] = [
     moduloPermiso: 'panel_global',
     sections: [{
       items: [
-        { icon: Coins,    label: 'Monedas', path: '/panel/monedas' },
-        { icon: Landmark, label: 'Cajas', path: '/panel/cajas' },
-        { icon: Globe,    label: 'Países', path: '/panel/paises' },
-        { icon: FileText, label: 'Tipos de documento', path: '/panel/tipos-documento' },
-        { icon: LayoutDashboard, label: 'Configuración', path: '/panel/configuracion' },
+        { icon: Coins,          label: 'Monedas',              path: '/panel/monedas' },
+        { icon: Landmark,       label: 'Cajas',                path: '/panel/cajas' },
+        { icon: Globe,          label: 'Países',               path: '/panel/paises' },
+        { icon: FileText,       label: 'Tipos de documento',   path: '/panel/tipos-documento' },
+        { icon: Package,        label: 'Productos Financieros', path: '/panel/productos-financieros' },
+        { icon: LayoutDashboard, label: 'Configuración',       path: '/panel/configuracion' },
       ],
     }],
   },

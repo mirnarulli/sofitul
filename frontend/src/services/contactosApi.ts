@@ -59,10 +59,13 @@ export const panelGlobalApi = {
   deleteCanal:       (id: string)              => api.delete(`/canales/${id}`).then(r => r.data),
 
   // Productos Financieros
-  getProductos:      ()                        => api.get('/productos-financieros').then(r => r.data),
-  getProductosActivos: ()                      => api.get('/productos-financieros/activos').then(r => r.data),
-  createProducto:    (b: any)                  => api.post('/productos-financieros', b).then(r => r.data),
-  updateProducto:    (id: string, b: any)      => api.put(`/productos-financieros/${id}`, b).then(r => r.data),
+  getProductos:              ()                        => api.get('/productos-financieros').then(r => r.data),
+  getProductosActivos:       ()                        => api.get('/productos-financieros/activos').then(r => r.data),
+  getProductoById:           (id: string)              => api.get(`/productos-financieros/${id}`).then(r => r.data),
+  createProducto:            (b: any)                  => api.post('/productos-financieros', b).then(r => r.data),
+  updateProducto:            (id: string, b: any)      => api.put(`/productos-financieros/${id}`, b).then(r => r.data),
+  addFormularioProducto:     (id: string, b: any)      => api.post(`/productos-financieros/${id}/formularios`, b).then(r => r.data),
+  removeFormularioProducto:  (id: string, fid: string) => api.delete(`/productos-financieros/${id}/formularios/${fid}`).then(r => r.data),
 
   getFrases:         ()                        => api.get('/frases').then(r => r.data),
   getFraseDelDia:    ()                        => api.get('/frases/del-dia').then(r => r.data),

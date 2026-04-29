@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Printer, FileText, CheckCircle2, XCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import { operacionesApi } from '../../services/operacionesApi';
-import { contactosApi } from '../../services/contactosApi';
+import { contactosApi, panelGlobalApi } from '../../services/contactosApi';
 import { DocHeader, DocFooter } from '../../components/DocHeader';
 import { formatGs, formatDate } from '../../utils/formatters';
 
@@ -75,10 +75,11 @@ function DocItem({ label, url, label2 }: { label: string; url?: string; label2?:
 export default function AnalisisCredito() {
   const { id } = useParams<{ id: string }>();
 
-  const [op,       setOp]       = useState<any>(null);
-  const [cliente,  setCliente]  = useState<any>(null);
+  const [op,        setOp]       = useState<any>(null);
+  const [cliente,   setCliente]  = useState<any>(null);
   const [historial, setHistorial] = useState<any[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [producto,  setProducto] = useState<any>(null);
+  const [loading,   setLoading]  = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -94,6 +95,12 @@ export default function AnalisisCredito() {
         const hist = await contactosApi.getOperacionesByContacto(o.contactoTipo, o.contactoId);
         setHistorial((hist.data ?? hist).filter((h: any) => h.id !== id));
       } catch {}
+      if (o.productoId) {
+        try {
+          const prod = await panelGlobalApi.getProductoById(o.productoId);
+          setProducto(prod);
+        } catch {}
+      }
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
@@ -114,14 +121,51 @@ export default function AnalisisCredito() {
   const totalP = pasivos.reduce((s: number, r: any) => s + Number(r.valor ?? 0), 0);
   const capacidad = totalI - totalE;
 
-  // Checklist legajo
+  // ── Informes de rigor dinámicos ────────────────────────────────────────────
+  // Si hay producto con formularios configurados, se usan esos.
+  // Si no, se muestran los dos informes base (informconf + infocheck).
+  const productFormularios: { id: string; nombre: string; requerido: boolean }[] =
+    (producto?.formularios?.length ?? 0) > 0
+      ? producto.formularios
+      : [
+          { id: 'informconf', nombre: 'Ficha INFORMCONF', requerido: true },
+          { id: 'infocheck',  nombre: 'Ficha INFOCHECK',  requerido: true },
+        ];
+
+  function resolverFormulario(fid: string): { ok: boolean; url?: string; sub: string } {
+    const id = fid.toLowerCase();
+    if (id.includes('informconf'))
+      return { ok: !!op.fichaInformconfUrl,     url: op.fichaInformconfUrl,     sub: op.fichaInformconfUrl     ? 'Cargado' : 'Pendiente' };
+    if (id.includes('infocheck'))
+      return { ok: !!op.fichaInfocheckUrl,      url: op.fichaInfocheckUrl,      sub: op.fichaInfocheckUrl      ? 'Cargado' : 'Pendiente' };
+    if (id.includes('contrato'))
+      return { ok: !!op.contratoTeDescuentoUrl, url: op.contratoTeDescuentoUrl, sub: op.nroContratoTeDescuento ? `N° ${op.nroContratoTeDescuento}` : 'Sin número' };
+    if (id.includes('pagare'))
+      return { ok: !!op.pagareRecibido, sub: op.pagareRecibido ? `Fecha: ${formatDate(op.fechaPagare)}` : 'Pendiente' };
+    if (id.includes('cheque'))
+      return { ok: (op.cheques?.length ?? 0) > 0, sub: `${op.cheques?.length ?? 0} cheque(s) registrado(s)` };
+    return { ok: false, sub: 'Pendiente' };
+  }
+
+  // ── Checklist legajo ────────────────────────────────────────────────────────
+  // Siempre: ficha del cliente
+  // Dinámicos: según formularios del producto
+  // Siempre (DESCUENTO_CHEQUE): pagaré + cheques (salvo que ya estén en formularios)
+  const tieneFormId = (fid: string) =>
+    productFormularios.some(f => f.id.toLowerCase().includes(fid));
+
   const legajo = [
-    { label: 'Ficha del cliente',       ok: !!cliente,                       sub: op.contactoNombre },
-    { label: 'Ficha INFORMCONF',        ok: !!op.fichaInformconfUrl,          sub: op.fichaInformconfUrl ? 'Cargado' : 'Pendiente', url: op.fichaInformconfUrl },
-    { label: 'Ficha INFOCHECK',         ok: !!op.fichaInfocheckUrl,           sub: op.fichaInfocheckUrl ? 'Cargado' : 'Pendiente',  url: op.fichaInfocheckUrl },
-    { label: 'Contrato TeDescuento',    ok: !!op.contratoTeDescuentoUrl,      sub: op.nroContratoTeDescuento ? `N° ${op.nroContratoTeDescuento}` : 'Sin número', url: op.contratoTeDescuentoUrl },
-    { label: 'Pagaré firmado',          ok: !!op.pagareRecibido,              sub: op.pagareRecibido ? `Fecha: ${formatDate(op.fechaPagare)}` : 'Pendiente' },
-    { label: 'Cheques',                 ok: (op.cheques?.length ?? 0) > 0,    sub: `${op.cheques?.length ?? 0} cheque(s) registrado(s)` },
+    { label: 'Ficha del cliente', ok: !!cliente, sub: op.contactoNombre },
+    ...productFormularios.map(f => {
+      const r = resolverFormulario(f.id);
+      return { label: f.nombre, ok: r.ok, sub: r.sub, url: r.url };
+    }),
+    ...(op.tipoOperacion === 'DESCUENTO_CHEQUE' && !tieneFormId('pagare')
+      ? [{ label: 'Pagaré firmado', ok: !!op.pagareRecibido, sub: op.pagareRecibido ? `Fecha: ${formatDate(op.fechaPagare)}` : 'Pendiente' }]
+      : []),
+    ...(op.tipoOperacion === 'DESCUENTO_CHEQUE' && !tieneFormId('cheque')
+      ? [{ label: 'Cheques', ok: (op.cheques?.length ?? 0) > 0, sub: `${op.cheques?.length ?? 0} cheque(s) registrado(s)` }]
+      : []),
   ];
   const legajoOk = legajo.filter(l => l.ok).length;
 
@@ -398,11 +442,24 @@ export default function AnalisisCredito() {
         )}
 
         {/* ── 5. Informes de rigor ── */}
-        <Section title="Informes de Rigor" icon="🔍">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <DocItem label="Ficha INFORMCONF" url={op.fichaInformconfUrl} label2={op.fichaInformconfUrl ? 'Documento cargado' : 'Pendiente de carga'} />
-            <DocItem label="Ficha INFOCHECK"  url={op.fichaInfocheckUrl}  label2={op.fichaInfocheckUrl  ? 'Documento cargado' : 'Pendiente de carga'} />
-          </div>
+        <Section title={`Informes de Rigor${producto ? ` — ${producto.nombre}` : ''}`} icon="🔍">
+          {productFormularios.length === 0 ? (
+            <p className="text-sm text-gray-400 italic">No hay informes configurados para este producto.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {productFormularios.map(f => {
+                const r = resolverFormulario(f.id);
+                return (
+                  <DocItem
+                    key={f.id}
+                    label={f.nombre}
+                    url={r.url}
+                    label2={r.sub}
+                  />
+                );
+              })}
+            </div>
+          )}
         </Section>
 
         {/* ── 6. Historial del cliente ── */}
