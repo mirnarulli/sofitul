@@ -34,7 +34,8 @@ import GestionRoles from './pages/admin/GestionRoles';
 import BitacoraAdmin from './pages/admin/BitacoraAdmin';
 
 import Monedas from './pages/panel/Monedas';
-import ProductosFinancieros from './pages/panel/ProductosFinancieros';
+import ProductosFinancieros    from './pages/panel/ProductosFinancieros';
+import TiposDocumentoAdjunto  from './pages/panel/TiposDocumentoAdjunto';
 import Cajas from './pages/panel/Cajas';
 import Paises from './pages/panel/Paises';
 import TiposDocumento from './pages/panel/TiposDocumento';
@@ -98,6 +99,7 @@ export default function App() {
           <Route path="/panel/tipos-documento" element={<TiposDocumento />} />
           <Route path="/panel/estados-operacion" element={<EstadosOperacion />} />
           <Route path="/panel/productos-financieros" element={<ProductosFinancieros />} />
+          <Route path="/panel/tipos-doc-adjunto"    element={<TiposDocumentoAdjunto />} />
           <Route path="/panel/configuracion" element={<Configuracion />} />
         </Route>
 

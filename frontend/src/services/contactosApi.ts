@@ -91,6 +91,40 @@ export const usuariosApi = {
   deleteRol:        (id: string)                => api.delete(`/usuarios/roles/${id}`).then(r => r.data),
 };
 
+export const documentosContactoApi = {
+  // ── Tipos documento adjunto (Panel Global) ──
+  getTipos:        ()                        => api.get('/tipos-documento-adjunto').then(r => r.data),
+  getTiposActivos: ()                        => api.get('/tipos-documento-adjunto/activos').then(r => r.data),
+  createTipo:      (b: any)                  => api.post('/tipos-documento-adjunto', b).then(r => r.data),
+  updateTipo:      (id: string, b: any)      => api.put(`/tipos-documento-adjunto/${id}`, b).then(r => r.data),
+
+  // ── Documentos del contacto ──
+  getByContacto: (contactoTipo: string, contactoId: string) =>
+    api.get('/documentos-contacto', { params: { contactoTipo, contactoId } }).then(r => r.data),
+
+  /** Crear con archivo en un solo request */
+  createConArchivo: (body: any, file: File) => {
+    const fd = new FormData();
+    Object.entries(body).forEach(([k, v]) => { if (v != null) fd.append(k, String(v)); });
+    fd.append('file', file);
+    return api.post('/documentos-contacto', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+
+  /** Crear solo metadatos (sin archivo) */
+  create: (b: any) => api.post('/documentos-contacto', b).then(r => r.data),
+
+  /** Actualizar metadatos */
+  update: (id: string, b: any) => api.put(`/documentos-contacto/${id}`, b).then(r => r.data),
+
+  delete: (id: string) => api.delete(`/documentos-contacto/${id}`).then(r => r.data),
+
+  /** Subir o reemplazar archivo */
+  upload: (id: string, file: File) => {
+    const fd = new FormData(); fd.append('file', file);
+    return api.post(`/documentos-contacto/${id}/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
+};
+
 export const bitacoraApi = {
   getAll: (params?: any) => api.get('/bitacora', { params }).then(r => r.data),
 };
