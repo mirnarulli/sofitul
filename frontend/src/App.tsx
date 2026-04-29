@@ -35,6 +35,7 @@ import BitacoraAdmin from './pages/admin/BitacoraAdmin';
 
 import Monedas from './pages/panel/Monedas';
 import ProductosFinancieros    from './pages/panel/ProductosFinancieros';
+import InformesRigor          from './pages/panel/InformesRigor';
 import TiposDocumentoAdjunto  from './pages/panel/TiposDocumentoAdjunto';
 import Cajas from './pages/panel/Cajas';
 import Paises from './pages/panel/Paises';
@@ -99,6 +100,7 @@ export default function App() {
           <Route path="/panel/tipos-documento" element={<TiposDocumento />} />
           <Route path="/panel/estados-operacion" element={<EstadosOperacion />} />
           <Route path="/panel/productos-financieros" element={<ProductosFinancieros />} />
+          <Route path="/panel/informes-rigor"        element={<InformesRigor />} />
           <Route path="/panel/tipos-doc-adjunto"    element={<TiposDocumentoAdjunto />} />
           <Route path="/panel/configuracion" element={<Configuracion />} />
         </Route>

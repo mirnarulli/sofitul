@@ -79,6 +79,7 @@ const MODULES: NavModule[] = [
         { icon: Globe,          label: 'Países',               path: '/panel/paises' },
         { icon: FileText,       label: 'Tipos de documento',   path: '/panel/tipos-documento' },
         { icon: Package,        label: 'Productos Financieros', path: '/panel/productos-financieros' },
+        { icon: ClipboardList,  label: 'Informes de Rigor',    path: '/panel/informes-rigor' },
         { icon: FileText,       label: 'Tipos Doc. Adjunto',   path: '/panel/tipos-doc-adjunto' },
         { icon: LayoutDashboard, label: 'Configuración',       path: '/panel/configuracion' },
       ],

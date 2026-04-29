@@ -71,6 +71,12 @@ export const panelGlobalApi = {
   addFormularioProducto:     (id: string, b: any)      => api.post(`/productos-financieros/${id}/formularios`, b).then(r => r.data),
   removeFormularioProducto:  (id: string, fid: string) => api.delete(`/productos-financieros/${id}/formularios/${fid}`).then(r => r.data),
 
+  // Informes de Rigor
+  getInformesRigor:          ()                        => api.get('/informes-rigor').then(r => r.data),
+  getInformesRigorActivos:   (aplicaA?: string)        => api.get('/informes-rigor/activos', { params: aplicaA ? { aplicaA } : {} }).then(r => r.data),
+  createInformeRigor:        (b: any)                  => api.post('/informes-rigor', b).then(r => r.data),
+  updateInformeRigor:        (id: string, b: any)      => api.put(`/informes-rigor/${id}`, b).then(r => r.data),
+
   getFrases:         ()                        => api.get('/frases').then(r => r.data),
   getFraseDelDia:    ()                        => api.get('/frases/del-dia').then(r => r.data),
   createFrase:       (b: any)                  => api.post('/frases', b).then(r => r.data),

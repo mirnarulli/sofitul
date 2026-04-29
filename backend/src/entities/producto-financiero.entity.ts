@@ -17,6 +17,10 @@ export class ProductoFinanciero {
   @Column({ name: 'tipo_operacion' })
   tipoOperacion: string;
 
+  /** Tipo de contacto al que aplica: 'pf' | 'pj' | 'ambos' */
+  @Column({ name: 'tipo_contacto', default: 'ambos' })
+  tipoContacto: string;
+
   // Array de formularios asociados: [{ id, nombre, requerido }]
   @Column({ type: 'jsonb', default: '[]' })
   formularios: any[];

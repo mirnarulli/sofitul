@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero, TipoDocumentoAdjunto } from './entities';
+import { Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero, TipoDocumentoAdjunto, InformeRigor } from './entities';
 import { ContactoPF } from './contactos/entities/contacto-pf.entity';
 import { ContactoPJ } from './contactos/entities/contacto-pj.entity';
 import { Operacion } from './operaciones/entities/operacion.entity';
@@ -31,6 +31,7 @@ import { InventarioCapitalModule } from './inventario-capital/inventario-capital
 import { DashboardsModule }        from './dashboards/dashboards.module';
 import { DocumentosContactoModule } from './documentos-contacto/documentos-contacto.module';
 import { DocumentoContacto }        from './documentos-contacto/documento-contacto.entity';
+import { InformesRigorModule }      from './informes-rigor/informes-rigor.module';
 
 @Module({
   imports: [
@@ -45,7 +46,7 @@ import { DocumentoContacto }        from './documentos-contacto/documento-contac
       database: process.env.DB_NAME     ?? (() => { throw new Error('DB_NAME no configurado'); })(),
       entities: [
         Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero,
-        TipoDocumentoAdjunto, DocumentoContacto,
+        TipoDocumentoAdjunto, DocumentoContacto, InformeRigor,
         ContactoPF, ContactoPJ,
         Operacion, ChequeDetalle, Cuota, EstadoOperacion,
       ],
@@ -70,6 +71,7 @@ import { DocumentoContacto }        from './documentos-contacto/documento-contac
     InventarioCapitalModule,
     DashboardsModule,
     DocumentosContactoModule,
+    InformesRigorModule,
   ],
 })
 export class AppModule {}
