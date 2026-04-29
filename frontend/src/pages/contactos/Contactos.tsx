@@ -85,7 +85,9 @@ export default function Contactos() {
               <tbody className="divide-y divide-gray-100">
                 {data.map((c: any) => tab === 'pf' ? (
                   <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-800">{c.primerNombre} {c.primerApellido}</td>
+                    <td className="px-4 py-3 font-medium text-gray-800">
+                      {[c.primerNombre, c.segundoNombre, c.primerApellido, c.segundoApellido].filter(Boolean).join(' ')}
+                    </td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs">{c.numeroDoc}</td>
                     <td className="px-4 py-3 text-gray-600">{c.celular ?? c.telefono ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{c.email ?? '—'}</td>
