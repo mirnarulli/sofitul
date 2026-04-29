@@ -986,7 +986,7 @@ function DocTab({
   documentos: any[]; tipos: any[]; apiBase: string; onReload: () => void;
 }) {
   const [showForm,  setShowForm]  = useState(false);
-  const [form,      setForm]      = useState({ tipoId: '', tipoNombre: '', tipoCategoria: categoria, fechaDocumento: '', observaciones: '' });
+  const [form,      setForm]      = useState({ tipoId: '', tipoNombre: '', tipoCodigo: '', tipoCategoria: categoria, fechaDocumento: '', observaciones: '' });
   const [file,      setFile]      = useState<File | null>(null);
   const [saving,    setSaving]    = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -997,7 +997,7 @@ function DocTab({
 
   const handleTipoChange = (tipoId: string) => {
     const t = tipos.find((x: any) => x.id === tipoId);
-    setForm(f => ({ ...f, tipoId, tipoNombre: t?.nombre ?? '', tipoCategoria: categoria }));
+    setForm(f => ({ ...f, tipoId, tipoNombre: t?.nombre ?? '', tipoCodigo: t?.codigo ?? '', tipoCategoria: categoria }));
   };
 
   const handleAgregar = async () => {
@@ -1008,7 +1008,7 @@ function DocTab({
       if (file) await documentosContactoApi.createConArchivo(body, file);
       else       await documentosContactoApi.create(body);
       setShowForm(false);
-      setForm({ tipoId: '', tipoNombre: '', tipoCategoria: categoria, fechaDocumento: '', observaciones: '' });
+      setForm({ tipoId: '', tipoNombre: '', tipoCodigo: '', tipoCategoria: categoria, fechaDocumento: '', observaciones: '' });
       setFile(null);
       onReload();
     } catch (err: any) {
@@ -1044,7 +1044,7 @@ function DocTab({
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{labelCat}</h2>
         <button
-          onClick={() => { setShowForm(s => !s); setForm({ tipoId: '', tipoNombre: '', tipoCategoria: categoria, fechaDocumento: '', observaciones: '' }); setFile(null); }}
+          onClick={() => { setShowForm(s => !s); setForm({ tipoId: '', tipoNombre: '', tipoCodigo: '', tipoCategoria: categoria, fechaDocumento: '', observaciones: '' }); setFile(null); }}
           className="flex items-center gap-1.5 bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700"
         >
           <Plus size={14}/> Agregar documento

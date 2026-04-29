@@ -78,6 +78,11 @@ export interface PagareProps {
   firmante4Nombre?:   string;
   firmante4Doc?:      string;
   firmante4Domicilio?:string;
+  // Segunda hoja: fotocopia CI
+  ciFrente?:  any;   // DocumentoContacto con url
+  ciDorso?:   any;   // DocumentoContacto con url
+  ciCliente?: any;   // datos del contacto PF
+  apiBase?:   string;
   // Para modo impresión directa
   autoPrint?: boolean;
 }
@@ -90,6 +95,7 @@ export default function Pagare({
   firmanteNombre, firmanteDoc, firmanteDomicilio,
   firmante3Nombre, firmante3Doc, firmante3Domicilio,
   firmante4Nombre, firmante4Doc, firmante4Domicilio,
+  ciFrente, ciDorso, ciCliente, apiBase = '',
   autoPrint = false,
 }: PagareProps) {
 
@@ -108,7 +114,8 @@ export default function Pagare({
         @media print {
           body > *:not(#pagare-root) { display: none !important; }
           #pagare-root { display: block !important; }
-          @page { size: A4; margin: 20mm 18mm; }
+          @page { size: A4; margin: 15mm 18mm; }
+          .print\\:break-before-page { page-break-before: always; break-before: page; }
         }
       `}</style>
 
@@ -269,7 +276,123 @@ export default function Pagare({
           </button>
         </div>
       </div>
+
+      {/* ── Segunda hoja: Fotocopia de Cédula ── */}
+      {(ciFrente?.url || ciDorso?.url) && (
+        <FotocopiaCedula
+          frente={ciFrente}
+          dorso={ciDorso}
+          cliente={ciCliente}
+          apiBase={apiBase}
+        />
+      )}
+
+      {/* Vista previa en pantalla cuando NO hay imágenes */}
+      {!ciFrente?.url && !ciDorso?.url && (
+        <div className="mt-6 print:hidden max-w-[210mm] mx-auto p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          <strong>Sin fotocopia de CI:</strong> Para incluir la segunda hoja con la cédula,
+          subí las imágenes en la pestaña <strong>Due Diligencia</strong> del contacto
+          (tipos: <em>Cédula - Frente</em> y <em>Cédula - Dorso</em>).
+        </div>
+      )}
     </>
+  );
+}
+
+// ── Segunda hoja: Fotocopia de Cédula ────────────────────────────────────────
+
+function FotocopiaCedula({ frente, dorso, cliente, apiBase }: {
+  frente?: any; dorso?: any; cliente?: any; apiBase: string;
+}) {
+  const fechaImpresion = new Date().toLocaleDateString('es-PY', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+  // Datos del titular desde el documento o del cliente
+  const nombreCompleto = cliente
+    ? [cliente.primerNombre, cliente.segundoNombre, cliente.primerApellido, cliente.segundoApellido].filter(Boolean).join(' ')
+    : '';
+  const nroCI    = cliente?.numeroDoc ?? '';
+  // Fecha de vencimiento: tomamos del documento "frente" si existe, sino del "dorso"
+  const vtoDoc   = frente?.fechaDocumento ?? dorso?.fechaDocumento ?? '';
+
+  const imgUrl = (doc: any) => doc?.url ? `${apiBase}${doc.url}` : null;
+
+  return (
+    <div className="
+      bg-white text-gray-900 font-serif text-[12px] leading-relaxed
+      max-w-[210mm] mx-auto mt-10 print:mt-0
+      p-8 print:p-0 print:shadow-none shadow-lg
+      print:break-before-page
+    ">
+      <style>{`@media print { .ci-page { page-break-before: always; } }`}</style>
+
+      {/* Título */}
+      <div className="border-2 border-gray-900 text-center py-2 mb-4">
+        <h2 className="text-base font-bold uppercase tracking-widest">Fotocopia de Cédula</h2>
+      </div>
+
+      {/* Imágenes */}
+      <div className={`grid gap-4 mb-4 ${frente?.url && dorso?.url ? 'grid-cols-2' : 'grid-cols-1 max-w-sm mx-auto'}`}>
+        {/* Frente */}
+        <div className="border border-gray-300">
+          <div className="bg-gray-100 text-center text-xs font-bold py-1 border-b border-gray-300 uppercase tracking-wider">
+            {frente?.tipoNombre ?? 'Frente'}
+          </div>
+          <div className="p-2 flex items-center justify-center min-h-[130px] bg-gray-50">
+            {imgUrl(frente)
+              ? <img src={imgUrl(frente)!} alt="CI Frente" className="max-h-[160px] w-full object-contain" />
+              : <span className="text-gray-400 text-xs italic">Sin imagen</span>
+            }
+          </div>
+        </div>
+
+        {/* Dorso */}
+        {(dorso?.url || (!frente?.url && !dorso?.url)) && (
+          <div className="border border-gray-300">
+            <div className="bg-gray-100 text-center text-xs font-bold py-1 border-b border-gray-300 uppercase tracking-wider">
+              {dorso?.tipoNombre ?? 'Dorso'}
+            </div>
+            <div className="p-2 flex items-center justify-center min-h-[130px] bg-gray-50">
+              {imgUrl(dorso)
+                ? <img src={imgUrl(dorso)!} alt="CI Dorso" className="max-h-[160px] w-full object-contain" />
+                : <span className="text-gray-400 text-xs italic">Sin imagen</span>
+              }
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Datos del titular */}
+      <table className="w-full border border-gray-300 text-sm">
+        <tbody>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2 bg-gray-50 font-semibold w-36 whitespace-nowrap">Titular</td>
+            <td className="border border-gray-300 px-3 py-2 font-medium uppercase">{nombreCompleto || '—'}</td>
+            <td className="border border-gray-300 px-3 py-2 bg-gray-50 font-semibold w-28 whitespace-nowrap">N° CI</td>
+            <td className="border border-gray-300 px-3 py-2 font-mono">{nroCI || '—'}</td>
+          </tr>
+          <tr>
+            <td className="border border-gray-300 px-3 py-2 bg-gray-50 font-semibold whitespace-nowrap">Vto. documento</td>
+            <td className="border border-gray-300 px-3 py-2">
+              {vtoDoc ? new Date(vtoDoc + 'T00:00:00').toLocaleDateString('es-PY') : '—'}
+            </td>
+            <td className="border border-gray-300 px-3 py-2 bg-gray-50 font-semibold whitespace-nowrap">Fecha impresión</td>
+            <td className="border border-gray-300 px-3 py-2">{fechaImpresion}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* Espacio para firma */}
+      <div className="mt-8 grid grid-cols-2 gap-16 text-center text-xs">
+        <div>
+          <div className="border-b border-gray-700 h-12 mb-1" />
+          <p className="text-gray-500">Firma del Titular</p>
+        </div>
+        <div>
+          <div className="border-b border-gray-700 h-12 mb-1" />
+          <p className="text-gray-500">Sello / Firma ONE TRADE S.A.</p>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -17,6 +17,9 @@ export class DocumentoContacto {
   @Column({ name: 'tipo_nombre' })
   tipoNombre: string;                       // desnormalizado
 
+  @Column({ name: 'tipo_codigo', nullable: true })
+  tipoCodigo: string;                       // desnormalizado (ej: cedula_frente, cedula_dorso)
+
   @Column({ name: 'tipo_categoria', nullable: true })
   tipoCategoria: string;                    // 'documentos' | 'due_diligence'
 
