@@ -267,13 +267,20 @@ export default function Pagare({
         <DocFooter nroDoc={nroPagare || nroOperacion} label="Pagaré N°" />
 
         {/* Botón imprimir (solo en pantalla) */}
-        <div className="mt-6 text-center print:hidden">
+        <div className="mt-6 print:hidden flex flex-col items-center gap-3">
           <button
             onClick={() => window.print()}
             className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-700 text-sm font-medium"
           >
             🖨️ Imprimir Pagaré
           </button>
+          {!ciFrente?.url && !ciDorso?.url && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-1.5 text-center max-w-xs">
+              ⚠ Sin fotocopia de CI adjunta — se imprimirá solo el pagaré.
+              <br/>
+              <span className="text-gray-500">Podés subirla en <strong>Due Diligencia</strong> del contacto.</span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -285,15 +292,6 @@ export default function Pagare({
           cliente={ciCliente}
           apiBase={apiBase}
         />
-      )}
-
-      {/* Vista previa en pantalla cuando NO hay imágenes */}
-      {!ciFrente?.url && !ciDorso?.url && (
-        <div className="mt-6 print:hidden max-w-[210mm] mx-auto p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          <strong>Sin fotocopia de CI:</strong> Para incluir la segunda hoja con la cédula,
-          subí las imágenes en la pestaña <strong>Due Diligencia</strong> del contacto
-          (tipos: <em>Cédula - Frente</em> y <em>Cédula - Dorso</em>).
-        </div>
       )}
     </>
   );
