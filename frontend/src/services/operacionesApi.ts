@@ -11,6 +11,14 @@ export const operacionesApi = {
   pagarCuota:        (id: string, b: any)  => api.put(`/operaciones/cuotas/${id}/pagar`, b).then(r => r.data),
   getEstados:        ()                    => api.get('/operaciones/estados').then(r => r.data),
   calcularInteres:   (b: any)              => api.post('/operaciones/calcular-interes', b).then(r => r.data),
+  actualizarContrato: (id: string, b: { nroContratoTeDescuento?: string }) =>
+    api.put(`/operaciones/${id}/contrato`, b).then(r => r.data),
+  uploadContrato: (id: string, file: File) => {
+    const fd = new FormData(); fd.append('file', file);
+    return api.post(`/operaciones/${id}/contrato/upload`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  },
 };
 
 export const cobranzasApi = {

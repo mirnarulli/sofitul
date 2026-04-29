@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, Printer, FileText } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Printer, FileText, Upload, ExternalLink, Save } from 'lucide-react';
 import { operacionesApi } from '../../services/operacionesApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
+
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') ?? 'http://localhost:3002';
 
 export default function OperacionDetalle() {
   const { id }   = useParams<{ id: string }>();
@@ -15,10 +17,16 @@ export default function OperacionDetalle() {
   const [nota,    setNota]    = useState('');
   const [saving,  setSaving]  = useState(false);
 
+  // Contrato TeDescuento
+  const [nroContrato,     setNroContrato]     = useState('');
+  const [savingContrato,  setSavingContrato]  = useState(false);
+  const [uploadingFile,   setUploadingFile]   = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (!id) return;
     Promise.all([operacionesApi.getById(id), operacionesApi.getEstados()])
-      .then(([o, e]) => { setOp(o); setEstados(e); })
+      .then(([o, e]) => { setOp(o); setEstados(e); setNroContrato(o.nroContratoTeDescuento ?? ''); })
       .catch(() => navigate('/operaciones'))
       .finally(() => setLoading(false));
   }, [id, navigate]);
@@ -30,6 +38,28 @@ export default function OperacionDetalle() {
       const updated = await operacionesApi.cambiarEstado(id!, { estado: nuevoEstado, nota });
       setOp(updated); setNuevoEstado(''); setNota('');
     } catch { } finally { setSaving(false); }
+  };
+
+  const handleGuardarNroContrato = async () => {
+    if (!id) return;
+    setSavingContrato(true);
+    try {
+      const updated = await operacionesApi.actualizarContrato(id, { nroContratoTeDescuento: nroContrato });
+      setOp(updated);
+    } catch { } finally { setSavingContrato(false); }
+  };
+
+  const handleUploadContrato = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    setUploadingFile(true);
+    try {
+      const updated = await operacionesApi.uploadContrato(id, file);
+      setOp(updated);
+    } catch { } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
@@ -151,6 +181,74 @@ export default function OperacionDetalle() {
           </div>
         </div>
       )}
+
+      {/* Contrato TeDescuento */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+          Contrato TeDescuento
+        </h2>
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Número de contrato */}
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs text-gray-500 mb-1">N° Contrato TeDescuento</label>
+            <input
+              type="text"
+              placeholder="Ej: 1767"
+              value={nroContrato}
+              onChange={e => setNroContrato(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+            />
+          </div>
+          <button
+            onClick={handleGuardarNroContrato}
+            disabled={savingContrato}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Save size={14} /> {savingContrato ? 'Guardando...' : 'Guardar N°'}
+          </button>
+
+          {/* Upload PDF */}
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={handleUploadContrato}
+              className="hidden"
+              id="contrato-upload"
+            />
+            <label
+              htmlFor="contrato-upload"
+              className={`flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg cursor-pointer hover:bg-gray-50 ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}
+            >
+              <Upload size={14} /> {uploadingFile ? 'Subiendo...' : 'Subir contrato PDF'}
+            </label>
+
+            {op.contratoTeDescuentoUrl && (
+              <a
+                href={`${API_BASE}${op.contratoTeDescuentoUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm text-green-700 border border-green-300 rounded-lg hover:bg-green-50"
+              >
+                <ExternalLink size={14} /> Ver contrato
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Estado actual */}
+        {(op.nroContratoTeDescuento || op.contratoTeDescuentoUrl) && (
+          <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+            {op.nroContratoTeDescuento && (
+              <span>📄 Contrato N° <strong className="text-gray-800 font-mono">{op.nroContratoTeDescuento}</strong></span>
+            )}
+            {op.contratoTeDescuentoUrl && (
+              <span className="text-green-600">✔ PDF cargado</span>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Bitácora */}
       {op.bitacora?.length > 0 && (

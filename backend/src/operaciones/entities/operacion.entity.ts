@@ -88,6 +88,10 @@ export class Operacion {
 
   @Column({ type: 'text', nullable: true })             observaciones: string;
 
+  // Contrato TeDescuento (número + URL del PDF escaneado)
+  @Column({ name: 'nro_contrato_te_descuento', nullable: true }) nroContratoTeDescuento: string;
+  @Column({ name: 'contrato_te_descuento_url', nullable: true }) contratoTeDescuentoUrl: string;
+
   // Bitácora interna de la operación (jsonb array de eventos)
   @Column({ type: 'jsonb', default: '[]' })             bitacora: any[];
 

@@ -1,4 +1,9 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req,
+         UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import * as fs from 'fs';
 import { OperacionesService } from './operaciones.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -59,4 +64,37 @@ export class OperacionesController {
 
   @Put('estados/:id')
   updateEstado(@Param('id') id: string, @Body() b: any) { return this.svc.updateEstado(id, b); }
+
+  // ── Contrato TeDescuento ──────────────────────────────────────────────────
+  @Put(':id/contrato')
+  actualizarContrato(@Param('id') id: string, @Body() b: { nroContratoTeDescuento?: string }) {
+    return this.svc.actualizarContrato(id, b);
+  }
+
+  @Post(':id/contrato/upload')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: (req, file, cb) => {
+        const dir = join(process.cwd(), 'uploads', 'contratos');
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `contrato-${req.params.id}-${uniqueSuffix}${extname(file.originalname)}`);
+      },
+    }),
+    fileFilter: (req, file, cb) => {
+      const allowed = ['.pdf', '.jpg', '.jpeg', '.png'];
+      const ext = extname(file.originalname).toLowerCase();
+      if (allowed.includes(ext)) return cb(null, true);
+      cb(new BadRequestException('Solo se aceptan PDF, JPG o PNG'), false);
+    },
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  }))
+  async uploadContrato(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No se recibió archivo');
+    const url = `/uploads/contratos/${file.filename}`;
+    return this.svc.actualizarContrato(id, { contratoTeDescuentoUrl: url });
+  }
 }

@@ -86,13 +86,28 @@ export class OperacionesService {
       }),
     );
 
+    let savedCheques: ChequeDetalle[] = [];
     if (cheques?.length) {
       const items = cheques.map(c => this.chequeRepo.create({ ...c, operacionId: operacion.id }));
-      await this.chequeRepo.save(items);
+      savedCheques = await this.chequeRepo.save(items);
     }
 
-    if (cuotas?.length) {
-      const items = cuotas.map(c => this.cuotaRepo.create({ ...c, operacionId: operacion.id }));
+    // Auto-generar cuotas desde cheques cuando es DESCUENTO_CHEQUE y no vienen cuotas explícitas
+    let cuotasToSave: Partial<Cuota>[] = cuotas ?? [];
+    if (!cuotasToSave.length && data.tipoOperacion === 'DESCUENTO_CHEQUE' && savedCheques.length) {
+      cuotasToSave = savedCheques.map((c, i) => ({
+        nroCuota:         i + 1,
+        fechaVencimiento: c.fechaVencimiento,
+        capital:          Number(c.capitalInvertido),
+        interes:          Number(c.interes),
+        total:            Number(c.monto),
+        saldo:            Number(c.monto),
+        estado:           'PENDIENTE',
+      }));
+    }
+
+    if (cuotasToSave.length) {
+      const items = cuotasToSave.map(c => this.cuotaRepo.create({ ...c, operacionId: operacion.id }));
       await this.cuotaRepo.save(items);
     }
 
@@ -163,6 +178,17 @@ export class OperacionesService {
 
     await this.cuotaRepo.update(cuotaId, { pagado, saldo, estado, fechaPago: data.fechaPago });
     return this.cuotaRepo.findOne({ where: { id: cuotaId } });
+  }
+
+  // ── Contrato TeDescuento ──────────────────────────────────────────────────
+  async actualizarContrato(id: string, data: { nroContratoTeDescuento?: string; contratoTeDescuentoUrl?: string }) {
+    const op = await this.operRepo.findOne({ where: { id } });
+    if (!op) throw new NotFoundException('Operación no encontrada');
+    const update: any = {};
+    if (data.nroContratoTeDescuento !== undefined) update.nroContratoTeDescuento = data.nroContratoTeDescuento;
+    if (data.contratoTeDescuentoUrl !== undefined) update.contratoTeDescuentoUrl = data.contratoTeDescuentoUrl;
+    await this.operRepo.update(id, update);
+    return this.findById(id);
   }
 
   // ── Estados configurables ─────────────────────────────────────────────────
