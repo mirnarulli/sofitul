@@ -9,6 +9,53 @@ import { BitacoraService } from '../bitacora/bitacora.service';
 // Campos JSONB que no se deben comparar campo a campo (se registran como bloque)
 const JSONB_FIELDS = ['ingresos', 'egresos', 'activos', 'pasivos', 'referencias', 'beneficiariosFinales'];
 
+// ── Normalización de nombres ──────────────────────────────────────────────────
+
+/** Primera letra de cada palabra en mayúscula, resto en minúscula. */
+function toTitleCase(s?: string | null): string | null {
+  if (!s) return s ?? null;
+  return s.trim().toLowerCase().replace(/\b\S/g, c => c.toUpperCase());
+}
+
+/** Todo en mayúsculas. */
+function toUpper(s?: string | null): string | null {
+  if (!s) return s ?? null;
+  return s.trim().toUpperCase();
+}
+
+/** Aplica Title Case a los campos de nombre de una PF. */
+function normalizarPF(data: Partial<ContactoPF>): Partial<ContactoPF> {
+  const str = toTitleCase;
+  return {
+    ...data,
+    ...(data.primerNombre       !== undefined && { primerNombre:       str(data.primerNombre) ?? undefined }),
+    ...(data.segundoNombre      !== undefined && { segundoNombre:      str(data.segundoNombre) }),
+    ...(data.primerApellido     !== undefined && { primerApellido:     str(data.primerApellido) ?? undefined }),
+    ...(data.segundoApellido    !== undefined && { segundoApellido:    str(data.segundoApellido) }),
+    ...(data.conyugeNombre      !== undefined && { conyugeNombre:      str(data.conyugeNombre) }),
+    ...(data.profesion          !== undefined && { profesion:          str(data.profesion) }),
+    ...(data.empleador          !== undefined && { empleador:          str(data.empleador) }),
+    ...(data.cargo              !== undefined && { cargo:              str(data.cargo) }),
+    ...(data.domicilio          !== undefined && { domicilio:          str(data.domicilio) }),
+    ...(data.barrio             !== undefined && { barrio:             str(data.barrio) }),
+    ...(data.ciudad             !== undefined && { ciudad:             str(data.ciudad) }),
+    ...(data.departamento       !== undefined && { departamento:       str(data.departamento) }),
+  };
+}
+
+/** Aplica UPPERCASE a los campos de nombre de una PJ. */
+function normalizarPJ(data: Partial<ContactoPJ>): Partial<ContactoPJ> {
+  const up = toUpper;
+  return {
+    ...data,
+    ...(data.razonSocial        !== undefined && { razonSocial:        up(data.razonSocial) ?? undefined }),
+    ...(data.nombreFantasia     !== undefined && { nombreFantasia:     up(data.nombreFantasia) }),
+    ...(data.actividadPrincipal !== undefined && { actividadPrincipal: up(data.actividadPrincipal) }),
+    ...(data.repLegalNombre     !== undefined && { repLegalNombre:     up(data.repLegalNombre) }),
+    ...(data.repLegalCargo      !== undefined && { repLegalCargo:      up(data.repLegalCargo) }),
+  };
+}
+
 function diffObjects(before: any, after: any): { campo: string; anterior: any; nuevo: any }[] {
   const cambios: { campo: string; anterior: any; nuevo: any }[] = [];
   for (const key of Object.keys(after)) {
@@ -58,7 +105,7 @@ export class ContactosService {
   findPFById(id: string) { return this.pfRepo.findOne({ where: { id } }); }
 
   async createPF(data: Partial<ContactoPF>, userId?: string, userNombre?: string) {
-    const pf = await this.pfRepo.save(this.pfRepo.create(data));
+    const pf = await this.pfRepo.save(this.pfRepo.create(normalizarPF(data)));
     await this.bitacora.log({
       usuarioId: userId, usuarioNombre: userNombre,
       accion: 'CREAR', modulo: 'contactos',
@@ -72,6 +119,7 @@ export class ContactosService {
     const before = await this.pfRepo.findOne({ where: { id } });
     if (!before) throw new NotFoundException('Contacto PF no encontrado');
 
+    data = normalizarPF(data);
     await this.pfRepo.update(id, data);
     const after = await this.pfRepo.findOne({ where: { id } });
 
@@ -106,7 +154,7 @@ export class ContactosService {
   findPJById(id: string) { return this.pjRepo.findOne({ where: { id } }); }
 
   async createPJ(data: Partial<ContactoPJ>, userId?: string, userNombre?: string) {
-    const pj = await this.pjRepo.save(this.pjRepo.create(data));
+    const pj = await this.pjRepo.save(this.pjRepo.create(normalizarPJ(data)));
     await this.bitacora.log({
       usuarioId: userId, usuarioNombre: userNombre,
       accion: 'CREAR', modulo: 'contactos',
@@ -120,6 +168,7 @@ export class ContactosService {
     const before = await this.pjRepo.findOne({ where: { id } });
     if (!before) throw new NotFoundException('Contacto PJ no encontrado');
 
+    data = normalizarPJ(data);
     await this.pjRepo.update(id, data);
     const after = await this.pjRepo.findOne({ where: { id } });
 
