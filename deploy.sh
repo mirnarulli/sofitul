@@ -93,12 +93,16 @@ log "[5/6] Actualizando servidor..."
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_HOST" bash << REMOTE
 set -e
 
-# Crear DB si no existe
-docker exec -i $PG_CONTAINER psql -U postgres -tc \
-  "SELECT 1 FROM pg_database WHERE datname='$PG_DB'" | grep -q 1 || \
-  docker exec -i $PG_CONTAINER psql -U postgres \
-  -c "CREATE USER $PG_USER WITH PASSWORD 'S0f1tul2026Secure';" \
-  -c "CREATE DATABASE $PG_DB OWNER $PG_USER;"
+# Crear DB si no existe — no-bloqueante (algunos servers no tienen rol 'postgres')
+docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB -c "SELECT 1" >/dev/null 2>&1 || {
+  echo "  → DB no responde con $PG_USER, intentando crear con superuser 'postgres'..."
+  docker exec -i $PG_CONTAINER psql -U postgres -tc \
+    "SELECT 1 FROM pg_database WHERE datname='$PG_DB'" 2>/dev/null | grep -q 1 || \
+    docker exec -i $PG_CONTAINER psql -U postgres \
+    -c "CREATE USER $PG_USER WITH PASSWORD 'S0f1tul2026Secure';" \
+    -c "CREATE DATABASE $PG_DB OWNER $PG_USER;" 2>/dev/null || \
+    echo "  ⚠ No se pudo crear/verificar la DB con superuser 'postgres'. Si la DB ya existe, esto es esperado y el deploy continúa."
+}
 
 echo "  → Ejecutando migraciones SQL..."
 if [[ -f /tmp/sofitul_migrations.tar.gz ]]; then
