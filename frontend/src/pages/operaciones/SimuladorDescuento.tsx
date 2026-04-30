@@ -5,6 +5,7 @@ import { contactosApi } from '../../services/contactosApi';
 import { operacionesApi } from '../../services/operacionesApi';
 import { DocHeader, DocFooter } from '../../components/DocHeader';
 import DocBarcode from '../../components/DocBarcode';
+import { useEmpresa } from '../../context/LogosContext';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ function calcularLiquidacion(cheques: Cheque[], fechaOperacion: string): Liquida
 
 export default function SimuladorDescuento() {
   const navigate = useNavigate();
+  const empresa  = useEmpresa();
 
   // Encabezado
   const [fechaOperacion, setFechaOperacion] = useState(() => new Date().toISOString().slice(0, 10));
@@ -300,7 +302,7 @@ export default function SimuladorDescuento() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Simulador de Descuento de Cheques</h1>
-          <p className="text-sm text-gray-500 mt-0.5">ONE TRADE S.A. — ONETBANK</p>
+          <p className="text-sm text-gray-500 mt-0.5">{empresa.empresa_nombre}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex gap-2">

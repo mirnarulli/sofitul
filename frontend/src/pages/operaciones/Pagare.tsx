@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { formatGs } from '../../utils/formatters';
 import { DocHeader, DocFooter } from '../../components/DocHeader';
 import DocBarcode from '../../components/DocBarcode';
+import { useEmpresa } from '../../context/LogosContext';
 
 // ── Conversión número → letras (Guaraníes) ─────────────────────────────────
 
@@ -100,6 +101,7 @@ export default function Pagare({
 }: PagareProps) {
 
   const ref = useRef<HTMLDivElement>(null);
+  const empresa = useEmpresa();
   const { dia, mes, anio } = fechaLarga(fechaEmision);
   const montoLetras = numeroALetras(monto);
 
@@ -175,7 +177,7 @@ export default function Pagare({
             Debo y pagaré en fecha de{' '}
             <span className="font-semibold underline decoration-dotted">{fechaCorta(fechaVencimiento)}</span>,
             incondicional, solidaria e indivisiblemente, libre de protesto, a la orden de{' '}
-            <span className="font-bold">ONE TRADE S.A. RUC Nro. 80085524-8</span>,
+            <span className="font-bold">{empresa.empresa_nombre}{empresa.empresa_ruc ? ` RUC Nro. ${empresa.empresa_ruc}` : ''}</span>,
             en su domicilio, donde se emite este pagaré, o en su defecto, donde el Acreedor indique
             por escrito y a través de medio fehaciente, la suma de{' '}
             <span className="font-semibold">Gs. {formatGs(monto)} (guaraníes {montoLetras})</span>,
@@ -302,6 +304,7 @@ export default function Pagare({
 function FotocopiaCedula({ frente, dorso, cliente, apiBase }: {
   frente?: any; dorso?: any; cliente?: any; apiBase: string;
 }) {
+  const empresa = useEmpresa();
   const fechaImpresion = new Date().toLocaleDateString('es-PY', { day:'2-digit', month:'2-digit', year:'numeric' });
 
   // Datos del titular desde el documento o del cliente
@@ -387,7 +390,7 @@ function FotocopiaCedula({ frente, dorso, cliente, apiBase }: {
         </div>
         <div>
           <div className="border-b border-gray-700 h-12 mb-1" />
-          <p className="text-gray-500">Sello / Firma ONE TRADE S.A.</p>
+          <p className="text-gray-500">Sello / Firma {empresa.empresa_nombre}</p>
         </div>
       </div>
     </div>

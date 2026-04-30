@@ -243,7 +243,41 @@ export class OperacionesService {
 
   // ── Cheques ───────────────────────────────────────────────────────────────
   async updateCheque(id: string, data: UpdateChequeDto) {
+    const cheque = await this.chequeRepo.findOne({ where: { id } });
+    if (!cheque) throw new NotFoundException('Cheque no encontrado');
+
     await this.chequeRepo.update(id, data);
+
+    // Auto-cierre: si todos los cheques de la operación ya no están VIGENTES
+    // y todos son COBRADO → cerrar la operación como COBRADO
+    if (data.estado) {
+      const todos = await this.chequeRepo.find({ where: { operacionId: cheque.operacionId } });
+      const todosTerminal = todos.every(c =>
+        (c.id === id ? data.estado : c.estado) !== 'VIGENTE'
+      );
+      const todosCobrados = todos.every(c =>
+        (c.id === id ? data.estado : c.estado) === 'COBRADO'
+      );
+
+      if (todosTerminal) {
+        const nuevoEstadoOp = todosCobrados ? ESTADO_OP.COBRADO : ESTADO_OP.EN_COBRANZA;
+        const op = await this.operRepo.findOne({ where: { id: cheque.operacionId } });
+        if (op && op.estado !== ESTADO_OP.COBRADO && op.estado !== ESTADO_OP.CERRADO) {
+          const nota = todosCobrados
+            ? 'Todos los cheques cobrados — operación cerrada automáticamente'
+            : 'Cheques con resultado mixto (devueltos/protestados)';
+          const bitacora = [...(op.bitacora ?? []), {
+            fecha: new Date().toISOString(),
+            de: op.estado,
+            a: nuevoEstadoOp,
+            nota,
+            tipo: 'ESTADO',
+          }];
+          await this.operRepo.update(cheque.operacionId, { estado: nuevoEstadoOp, bitacora });
+        }
+      }
+    }
+
     return this.chequeRepo.findOne({ where: { id } });
   }
 

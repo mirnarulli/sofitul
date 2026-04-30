@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Check, X, Landmark } from 'lucide-react';
 import { panelGlobalApi } from '../../services/contactosApi';
 
-const VACIO = { nombre: '', codigo: '', abreviatura: '', orden: 0, activo: true };
+const VACIO = { nombre: '', codigo: '', abreviatura: '', orden: 0, activo: true, contacto: '', correo: '', telefono: '' };
 
 export default function Bancos() {
   const [bancos,   setBancos]   = useState<any[]>([]);
@@ -40,7 +40,16 @@ export default function Bancos() {
 
   const handleEditar = (b: any) => {
     setEditId(b.id);
-    setForm({ nombre: b.nombre, codigo: b.codigo ?? '', abreviatura: b.abreviatura ?? '', orden: b.orden ?? 0, activo: b.activo });
+    setForm({
+      nombre:       b.nombre,
+      codigo:       b.codigo      ?? '',
+      abreviatura:  b.abreviatura ?? '',
+      orden:        b.orden       ?? 0,
+      activo:       b.activo,
+      contacto:     b.contacto    ?? '',
+      correo:       b.correo      ?? '',
+      telefono:     b.telefono    ?? '',
+    });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -53,7 +62,7 @@ export default function Bancos() {
   );
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Landmark size={22} className="text-blue-600" />
@@ -85,17 +94,31 @@ export default function Bancos() {
               <input value={form.abreviatura} onChange={e => set('abreviatura', e.target.value)} className={inputCls}
                 placeholder="Ej: Continental" />
             </div>
+            {/* Datos de contacto */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Contacto (persona)</label>
+              <input value={form.contacto} onChange={e => set('contacto', e.target.value)} className={inputCls}
+                placeholder="Ej: Juan Pérez" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Correo</label>
+              <input type="email" value={form.correo} onChange={e => set('correo', e.target.value)} className={inputCls}
+                placeholder="Ej: contacto@banco.com.py" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label>
+              <input value={form.telefono} onChange={e => set('telefono', e.target.value)} className={inputCls}
+                placeholder="Ej: +595 21 000 000" />
+            </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Orden</label>
               <input type="number" value={form.orden} onChange={e => set('orden', e.target.value)} className={inputCls} min={0} />
             </div>
-            <div className="flex items-end pb-1">
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" checked={form.activo} onChange={e => set('activo', e.target.checked)} className="w-4 h-4 accent-blue-600" />
-                Activo
-              </label>
-            </div>
           </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer mb-3">
+            <input type="checkbox" checked={form.activo} onChange={e => set('activo', e.target.checked)} className="w-4 h-4 accent-blue-600" />
+            Activo
+          </label>
           <div className="flex gap-2 pt-2">
             <button onClick={handleGuardar} disabled={saving}
               className="flex items-center gap-1.5 bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
@@ -122,14 +145,14 @@ export default function Bancos() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['#', 'Nombre', 'Código', 'Abrev.', 'Estado', ''].map(h => (
+                {['#', 'Nombre', 'Código', 'Contacto', 'Correo', 'Teléfono', 'Estado', ''].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtrados.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Sin resultados</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Sin resultados</td></tr>
               ) : filtrados.map((b: any) => (
                 <tr key={b.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-gray-400 text-xs w-8">{b.orden}</td>
@@ -139,7 +162,17 @@ export default function Bancos() {
                       ? <span className="bg-blue-50 text-blue-700 text-xs font-mono px-2 py-0.5 rounded">{b.codigo}</span>
                       : <span className="text-gray-300">—</span>}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{b.abreviatura ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{b.contacto || <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {b.correo
+                      ? <a href={`mailto:${b.correo}`} className="text-blue-600 hover:underline">{b.correo}</a>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {b.telefono
+                      ? <a href={`tel:${b.telefono}`} className="text-blue-600 hover:underline">{b.telefono}</a>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${b.activo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                       {b.activo ? 'Activo' : 'Inactivo'}

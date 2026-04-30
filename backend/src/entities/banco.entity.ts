@@ -20,6 +20,15 @@ export class Banco {
   @Column({ default: 0 })
   orden: number;
 
+  @Column({ nullable: true })
+  contacto: string;
+
+  @Column({ nullable: true })
+  correo: string;
+
+  @Column({ nullable: true })
+  telefono: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

@@ -2,6 +2,20 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Check, X, CalendarDays, Trash2 } from 'lucide-react';
 import { panelGlobalApi } from '../../services/contactosApi';
 
+const MESES_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+/** Convierte cualquier formato de fecha (ISO, date string) a YYYY-MM-DD */
+const toYMD = (fecha: any): string => String(fecha).slice(0, 10);
+
+/** Formatea fecha para mostrar en la tabla */
+const formatFecha = (fecha: any, tipo: string): string => {
+  const ymd = toYMD(fecha);
+  const [year, mm, dd] = ymd.split('-').map(Number);
+  const mes = MESES_ES[(mm ?? 1) - 1] ?? '';
+  if (tipo === 'FIJO') return `${String(dd).padStart(2, '0')} ${mes}`;
+  return `${String(dd).padStart(2, '0')} ${mes} ${year}`;
+};
+
 const TIPOS = [
   { value: 'FIJO',     label: 'Fijo',     desc: 'Misma fecha todos los años',        cls: 'bg-blue-100 text-blue-700'   },
   { value: 'MOVIL',    label: 'Móvil',    desc: 'Fecha variable (Semana Santa, etc.)', cls: 'bg-amber-100 text-amber-700' },
@@ -57,7 +71,7 @@ export default function Feriados() {
 
   const handleEditar = (f: any) => {
     setEditId(f.id);
-    setForm({ fecha: f.fecha, tipo: f.tipo, descripcion: f.descripcion, activo: f.activo });
+    setForm({ fecha: toYMD(f.fecha), tipo: f.tipo, descripcion: f.descripcion, activo: f.activo });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -75,11 +89,18 @@ export default function Feriados() {
   const inputCls  = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
   const selectCls = inputCls;
 
-  const filtrados = feriados.filter(f =>
-    !buscar ||
-    f.descripcion.toLowerCase().includes(buscar.toLowerCase()) ||
-    f.tipo.toLowerCase().includes(buscar.toLowerCase()),
-  );
+  const filtrados = feriados
+    .filter(f =>
+      !buscar ||
+      f.descripcion.toLowerCase().includes(buscar.toLowerCase()) ||
+      f.tipo.toLowerCase().includes(buscar.toLowerCase()),
+    )
+    .sort((a, b) => {
+      // Ordenar por mes/día (ignorar año base de FIJO)
+      const fa = toYMD(a.fecha).slice(5); // MM-DD
+      const fb = toYMD(b.fecha).slice(5);
+      return fa.localeCompare(fb);
+    });
 
   const fijos    = filtrados.filter(f => f.tipo === 'FIJO');
   const moviles  = filtrados.filter(f => f.tipo === 'MOVIL');
@@ -187,7 +208,7 @@ export default function Feriados() {
                 <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Sin registros para los filtros aplicados</td></tr>
               ) : filtrados.map((f: any) => (
                 <tr key={f.id} className={`hover:bg-gray-50 transition-colors ${!f.activo ? 'opacity-50' : ''}`}>
-                  <td className="px-4 py-3 font-mono text-sm text-gray-800 whitespace-nowrap">{f.fecha}</td>
+                  <td className="px-4 py-3 font-mono text-sm text-gray-800 whitespace-nowrap">{formatFecha(f.fecha, f.tipo)}</td>
                   <td className="px-4 py-3"><TipoBadge tipo={f.tipo} /></td>
                   <td className="px-4 py-3 text-gray-700">{f.descripcion}</td>
                   <td className="px-4 py-3">

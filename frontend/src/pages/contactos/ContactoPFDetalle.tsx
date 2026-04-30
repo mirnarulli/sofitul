@@ -5,6 +5,7 @@ import {
   TrendingUp, AlertTriangle, CheckCircle, Clock, FileText,
 } from 'lucide-react';
 import { contactosApi, panelGlobalApi, documentosContactoApi } from '../../services/contactosApi';
+import { useEmpresa } from '../../context/LogosContext';
 import { formatDate, formatGs, diasHasta } from '../../utils/formatters';
 import { ESTADOS_VIGENTES } from '../../utils/estados';
 import StatusBadge from '../../components/StatusBadge';
@@ -223,6 +224,7 @@ function OpsTablePrint({ ops }: { ops: any[] }) {
 // ── Ficha print layout ────────────────────────────────────────────────────────
 
 function FichaImpresa({ pf, operaciones, empresas }: { pf: any; operaciones: any[]; empresas: any[] }) {
+  const empresa = useEmpresa();
   const nombre = [pf.primerNombre, pf.segundoNombre, pf.primerApellido, pf.segundoApellido].filter(Boolean).join(' ');
   const ings   = (pf.ingresos  as MontoRow[] | null) ?? [];
   const egs    = (pf.egresos   as MontoRow[] | null) ?? [];
@@ -244,7 +246,7 @@ function FichaImpresa({ pf, operaciones, empresas }: { pf: any; operaciones: any
       <div className="border-b-2 border-gray-900 pb-2 mb-3 flex items-start justify-between">
         <div>
           <h1 className="text-sm font-bold uppercase tracking-wide">Ficha de Cliente — Persona Física</h1>
-          <p className="text-[10px] text-gray-500 mt-0.5">ONE TRADE S.A. · Emitida: {new Date().toLocaleDateString('es-PY')}</p>
+          <p className="text-[10px] text-gray-500 mt-0.5">{empresa.empresa_nombre} · Emitida: {new Date().toLocaleDateString('es-PY')}</p>
         </div>
         <div className="text-right text-[10px]">
           {pf.calificacionInterna && (
@@ -406,7 +408,7 @@ function FichaImpresa({ pf, operaciones, empresas }: { pf: any; operaciones: any
 
       {/* ── Firmas ── */}
       <div className="mt-6 pt-3 border-t border-gray-300 grid grid-cols-3 gap-8 text-center text-[10px]">
-        {['Firma del Cliente', 'Firma del Representante', 'Sello / Firma ONE TRADE'].map(l => (
+        {['Firma del Cliente', 'Firma del Representante', `Sello / Firma ${empresa.empresa_nombre}`].map(l => (
           <div key={l}>
             <div className="border-b border-gray-700 h-10 mb-1" />
             <p className="text-gray-500">{l}</p>
@@ -420,7 +422,7 @@ function FichaImpresa({ pf, operaciones, empresas }: { pf: any; operaciones: any
 // ── Main component ────────────────────────────────────────────────────────────
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') ?? 'http://localhost:3002';
-const TABS = ['Datos Personales','Financiero','Transferencia','Documentos','Due Diligencia','Operaciones','Calificación'] as const;
+const TABS = ['Datos Personales','Financiero','Operaciones','Transferencia','Due Diligencia','Documentos'] as const;
 type Tab = typeof TABS[number];
 
 export default function ContactoPFDetalle() {
@@ -443,6 +445,8 @@ export default function ContactoPFDetalle() {
   const [bancos,        setBancos]        = useState<any[]>([]);
   const [departamentos, setDepartamentos] = useState<any[]>([]);
   const [ciudades,      setCiudades]      = useState<any[]>([]);
+  const [califEdit,     setCalifEdit]     = useState(false);
+  const [califSaving,   setCalifSaving]   = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -918,7 +922,7 @@ export default function ContactoPFDetalle() {
       case 'Documentos':       return renderDocsTab('documentos');
       case 'Due Diligencia':   return renderDocsTab('due_diligence');
       case 'Operaciones':      return renderOperaciones();
-      case 'Calificación':     return renderCalificacion();
+      default: return null;
     }
   };
 
@@ -940,7 +944,34 @@ export default function ContactoPFDetalle() {
               <span className="text-gray-400 text-sm">{pf.tipoDocumento??'CI'} {pf.numeroDoc}</span>
               {pf.esPep   && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">PEP</span>}
               {pf.esFatca && <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">FATCA</span>}
-              <CalBadge cal={pf.calificacionInterna}/>
+              {/* Calificación — inline editable */}
+              {califEdit ? (
+                <span className="flex items-center gap-1">
+                  <select autoFocus disabled={califSaving}
+                    value={pf.calificacionInterna ?? ''}
+                    onChange={async e => {
+                      const val = e.target.value || null;
+                      setCalifSaving(true);
+                      try {
+                        await contactosApi.actualizarPersonaFisica(id!, { calificacionInterna: val });
+                        setPf((p: any) => ({ ...p, calificacionInterna: val }));
+                      } catch { alert('Error al guardar calificación.'); }
+                      finally { setCalifSaving(false); setCalifEdit(false); }
+                    }}
+                    className="px-2 py-0.5 border border-blue-400 rounded text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Sin calificación</option>
+                    {CALIFICACIONES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                  <button onClick={() => setCalifEdit(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                </span>
+              ) : (
+                <button onClick={() => setCalifEdit(true)} title="Click para cambiar calificación"
+                  className="flex items-center gap-1 group hover:opacity-80 transition-opacity">
+                  <CalBadge cal={pf.calificacionInterna}/>
+                  <span className="text-gray-300 group-hover:text-gray-500 text-xs">✎</span>
+                </button>
+              )}
             </div>
             <p className="text-xs text-gray-400 mt-0.5">Persona Física · ID {id}</p>
           </div>

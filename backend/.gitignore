@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment files — nunca commitear archivos con credenciales reales
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Logs
+*.log
+
+# Uploads runtime
+uploads/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Coverage
+coverage/

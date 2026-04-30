@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   FileText, Users, Wallet, Settings, Coins, Globe, UserCog, LogOut,
   ChevronDown, ChevronRight, Menu, X, Landmark, BarChart2, TrendingUp,
-  ClipboardList, Bell, LayoutDashboard, Plus, Tag, Briefcase, Calculator, Package, ShieldOff, CalendarDays,
+  ClipboardList, Bell, LayoutDashboard, Plus, Tag, Briefcase, Calculator, Package, ShieldOff, CalendarDays, Link2, Building2,
 } from 'lucide-react';
 import { useLogos } from '../context/LogosContext';
 import { canView, type Modulo } from '../utils/permisos';
@@ -84,6 +84,8 @@ const MODULES: NavModule[] = [
         { icon: Landmark,       label: 'Bancos',               path: '/panel/bancos' },
         { icon: CalendarDays,   label: 'Feriados',             path: '/panel/feriados' },
         { icon: ShieldOff,      label: 'Clientes Vetados',     path: '/panel/clientes-vetados' },
+        { icon: Building2,       label: 'Empresa',              path: '/panel/empresa' },
+        { icon: Link2,          label: 'Integraciones',        path: '/panel/integraciones' },
         { icon: LayoutDashboard, label: 'Configuración',       path: '/panel/configuracion' },
       ],
     }],

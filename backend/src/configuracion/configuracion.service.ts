@@ -30,4 +30,16 @@ export class ConfiguracionService {
     const rows = await this.repo.find({ where: keys.map(k => ({ clave: k })) as any });
     return Object.fromEntries(rows.map(r => [r.clave, r.valor]));
   }
+
+  async getEmpresa(): Promise<{ empresa_nombre: string; empresa_ruc: string; empresa_direccion: string; empresa_ciudad: string }> {
+    const keys = ['empresa_nombre', 'empresa_ruc', 'empresa_direccion', 'empresa_ciudad'];
+    const rows = await this.repo.find({ where: keys.map(k => ({ clave: k })) as any });
+    const m = Object.fromEntries(rows.map(r => [r.clave, r.valor]));
+    return {
+      empresa_nombre:     m['empresa_nombre']     ?? 'SOFITUL',
+      empresa_ruc:        m['empresa_ruc']        ?? '',
+      empresa_direccion:  m['empresa_direccion']  ?? '',
+      empresa_ciudad:     m['empresa_ciudad']      ?? 'Asunción, Paraguay',
+    };
+  }
 }

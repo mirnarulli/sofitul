@@ -47,6 +47,8 @@ import Configuracion from './pages/panel/Configuracion';
 import Bancos from './pages/panel/Bancos';
 import ClientesVetados from './pages/panel/ClientesVetados';
 import Feriados from './pages/panel/Feriados';
+import Integraciones from './pages/panel/Integraciones';
+import Empresa from './pages/panel/Empresa';
 
 export default function App() {
   useVersionCheck();
@@ -113,6 +115,8 @@ export default function App() {
           <Route path="/panel/clientes-vetados"     element={<ClientesVetados />} />
           <Route path="/panel/feriados"             element={<Feriados />} />
           <Route path="/panel/configuracion" element={<Configuracion />} />
+          <Route path="/panel/integraciones" element={<Integraciones />} />
+          <Route path="/panel/empresa" element={<Empresa />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

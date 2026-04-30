@@ -183,4 +183,16 @@ export const validataApi = {
   /** Detalle completo de una consulta guardada */
   getConsulta: (id: string) =>
     api.get(`/validata/consultas/${id}`).then(r => r.data),
+
+  /** Leer credenciales actuales (pass censurado) — SUPERADMIN */
+  getCredenciales: () =>
+    api.get('/validata/credenciales').then(r => r.data),
+
+  /** Guardar credenciales — SUPERADMIN */
+  setCredenciales: (data: { validata_url?: string; validata_user?: string; validata_pass?: string }) =>
+    api.post('/validata/credenciales', data).then(r => r.data),
+
+  /** Test de conexión — SUPERADMIN */
+  testConexion: () =>
+    api.post('/validata/test-conexion').then(r => r.data),
 };

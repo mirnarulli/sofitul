@@ -165,4 +165,40 @@ export class UsersService {
     await this.rolesRepo.delete(id);
     return { mensaje: 'Rol eliminado' };
   }
+
+  // ── Gestión de acceso ──────────────────────────────────────────────────────
+
+  /** Reenvía el link de invitación generando un nuevo token de 7 días */
+  async reenviarInvitacion(id: string): Promise<{ mensaje: string; token: string }> {
+    const usuario = await this.usuariosRepo.findOne({ where: { id } });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    const token  = crypto.randomBytes(32).toString('hex');
+    const expira = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await this.usuariosRepo.update(id, {
+      tokenInvitacion:       token,
+      tokenInvitacionExpira: expira,
+      emailVerificado:       false,
+    });
+
+    return { mensaje: 'Invitación reenviada', token };
+  }
+
+  /** Admin fuerza reset de contraseña: genera token y marca debeCambiarPassword */
+  async resetPasswordAdmin(id: string): Promise<{ mensaje: string; token: string }> {
+    const usuario = await this.usuariosRepo.findOne({ where: { id } });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    const token  = crypto.randomBytes(32).toString('hex');
+    const expira = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 horas
+
+    await this.usuariosRepo.update(id, {
+      tokenInvitacion:       token,
+      tokenInvitacionExpira: expira,
+      debeCambiarPassword:   true,
+    });
+
+    return { mensaje: 'Reset de contraseña generado', token };
+  }
 }

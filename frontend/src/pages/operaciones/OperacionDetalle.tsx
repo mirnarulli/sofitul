@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Printer, FileText, Upload, ExternalLink, Save, UserCheck, Plus, X } from 'lucide-react';
+import { ArrowLeft, Printer, FileText, Upload, ExternalLink, Save, UserCheck, Plus, X, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { operacionesApi } from '../../services/operacionesApi';
 import { contactosApi } from '../../services/contactosApi';
 import StatusBadge from '../../components/StatusBadge';
@@ -73,6 +73,9 @@ export default function OperacionDetalle() {
   const informconfRef        = useRef<HTMLInputElement>(null);
   const infocheckRef         = useRef<HTMLInputElement>(null);
 
+  // Cheques — cambio de estado individual
+  const [updatingCheque, setUpdatingCheque] = useState<string | null>(null); // id del cheque en proceso
+
   // Firmantes
   const [firmantes,        setFirmantes]        = useState<any[]>([]);
   const [buscarFirmante,   setBuscarFirmante]   = useState('');
@@ -99,6 +102,30 @@ export default function OperacionDetalle() {
       .catch(() => navigate('/operaciones'))
       .finally(() => setLoading(false));
   }, [id, navigate]);
+
+  const recargarOp = async () => {
+    if (!id) return;
+    const [o, siguientesNuevos] = await Promise.all([
+      operacionesApi.getById(id),
+      operacionesApi.getSiguientesEstados('').catch(() => []),
+    ]);
+    setOp(o);
+    if (o.estado) {
+      operacionesApi.getSiguientesEstados(o.estado).then(setSiguientes).catch(() => {});
+    }
+  };
+
+  const handleChequeEstado = async (chequeId: string, nuevoEstado: 'COBRADO' | 'DEVUELTO' | 'PROTESTADO' | 'VIGENTE') => {
+    setUpdatingCheque(chequeId);
+    try {
+      await operacionesApi.updateCheque(chequeId, { estado: nuevoEstado });
+      await recargarOp();
+    } catch {
+      alert('Error al actualizar el cheque.');
+    } finally {
+      setUpdatingCheque(null);
+    }
+  };
 
   const handleBuscarFirmante = async () => {
     if (!buscarFirmante.trim()) return;
@@ -334,30 +361,91 @@ export default function OperacionDetalle() {
       {/* Cheques */}
       {op.cheques?.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Cheques ({op.cheques.length})</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+              Cheques ({op.cheques.length})
+            </h2>
+            {/* Resumen rápido */}
+            <div className="flex gap-3 text-xs">
+              {(() => {
+                const cobrados  = op.cheques.filter((c: any) => c.estado === 'COBRADO').length;
+                const devueltos = op.cheques.filter((c: any) => c.estado === 'DEVUELTO' || c.estado === 'PROTESTADO').length;
+                const vigentes  = op.cheques.filter((c: any) => c.estado === 'VIGENTE').length;
+                return (<>
+                  {cobrados  > 0 && <span className="flex items-center gap-1 text-green-700 font-medium"><CheckCircle2 size={12}/>{cobrados} cobrado{cobrados>1?'s':''}</span>}
+                  {devueltos > 0 && <span className="flex items-center gap-1 text-red-600 font-medium"><XCircle size={12}/>{devueltos} devuelto/protestado</span>}
+                  {vigentes  > 0 && <span className="flex items-center gap-1 text-amber-600 font-medium"><AlertTriangle size={12}/>{vigentes} pendiente{vigentes>1?'s':''}</span>}
+                </>);
+              })()}
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-50">
-                <tr>{['Banco','Librador','N° Cheque','Vencimiento','Monto','Interés','Capital Invertido','Estado'].map(h => (
+                <tr>{['Banco','Librador','N° Cheque','Vencimiento','Monto','Capital','Estado','Acción'].map(h => (
                   <th key={h} className="px-3 py-2 text-left text-gray-500 font-semibold uppercase">{h}</th>
                 ))}</tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {op.cheques.map((c: any) => (
-                  <tr key={c.id}>
-                    <td className="px-3 py-2">{c.banco}</td>
-                    <td className="px-3 py-2">{c.librador}</td>
-                    <td className="px-3 py-2 font-mono">{c.nroCheque}</td>
-                    <td className="px-3 py-2">{formatDate(c.fechaVencimiento)}</td>
-                    <td className="px-3 py-2 font-medium">{formatGs(c.monto)}</td>
-                    <td className="px-3 py-2 text-red-600">{formatGs(c.interes)}</td>
-                    <td className="px-3 py-2 text-green-700">{formatGs(c.capitalInvertido)}</td>
-                    <td className="px-3 py-2"><StatusBadge estado={c.estado} /></td>
-                  </tr>
-                ))}
+                {op.cheques.map((c: any) => {
+                  const busy = updatingCheque === c.id;
+                  return (
+                    <tr key={c.id} className={c.estado === 'COBRADO' ? 'bg-green-50' : c.estado === 'DEVUELTO' || c.estado === 'PROTESTADO' ? 'bg-red-50' : ''}>
+                      <td className="px-3 py-2">{c.banco}</td>
+                      <td className="px-3 py-2">{c.librador}</td>
+                      <td className="px-3 py-2 font-mono">{c.nroCheque}</td>
+                      <td className="px-3 py-2">{formatDate(c.fechaVencimiento)}</td>
+                      <td className="px-3 py-2 font-medium">{formatGs(c.monto)}</td>
+                      <td className="px-3 py-2 text-green-700">{formatGs(c.capitalInvertido)}</td>
+                      <td className="px-3 py-2"><StatusBadge estado={c.estado} /></td>
+                      <td className="px-3 py-2">
+                        {c.estado === 'VIGENTE' && (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleChequeEstado(c.id, 'COBRADO')}
+                              disabled={busy}
+                              title="Marcar como cobrado"
+                              className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 font-medium text-xs whitespace-nowrap">
+                              <CheckCircle2 size={11}/> {busy ? '...' : 'Cobrado'}
+                            </button>
+                            <button
+                              onClick={() => handleChequeEstado(c.id, 'DEVUELTO')}
+                              disabled={busy}
+                              title="Marcar como devuelto"
+                              className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 border border-red-300 rounded-md hover:bg-red-200 disabled:opacity-50 font-medium text-xs whitespace-nowrap">
+                              <XCircle size={11}/> Dev.
+                            </button>
+                            <button
+                              onClick={() => handleChequeEstado(c.id, 'PROTESTADO')}
+                              disabled={busy}
+                              title="Marcar como protestado"
+                              className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 border border-orange-300 rounded-md hover:bg-orange-200 disabled:opacity-50 font-medium text-xs whitespace-nowrap">
+                              <AlertTriangle size={11}/> Prot.
+                            </button>
+                          </div>
+                        )}
+                        {c.estado === 'COBRADO' && (
+                          <span className="text-green-600 font-medium flex items-center gap-1"><CheckCircle2 size={12}/> Cubierto</span>
+                        )}
+                        {(c.estado === 'DEVUELTO' || c.estado === 'PROTESTADO') && (
+                          <button
+                            onClick={() => handleChequeEstado(c.id, 'COBRADO')}
+                            disabled={busy}
+                            className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 border border-green-300 rounded-md hover:bg-green-200 disabled:opacity-50 font-medium text-xs whitespace-nowrap">
+                            <CheckCircle2 size={11}/> Cobrar igualmente
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+          {/* Nota informativa */}
+          <p className="mt-3 text-xs text-gray-400">
+            Al marcar todos los cheques como cobrados, la operación se cierra automáticamente como <strong>COBRADO</strong>.
+          </p>
         </div>
       )}
 

@@ -5,6 +5,7 @@ import {
   TrendingUp, AlertTriangle, CheckCircle, Clock,
 } from 'lucide-react';
 import { contactosApi, panelGlobalApi } from '../../services/contactosApi';
+import { useEmpresa } from '../../context/LogosContext';
 import { ESTADOS_VIGENTES } from '../../utils/estados';
 import CuentasTransferencia from '../../components/CuentasTransferencia';
 import { formatDate, formatGs, diasHasta } from '../../utils/formatters';
@@ -89,13 +90,14 @@ function BenefTable({ rows, onChange, editing }: {
 // ── Ficha print layout ────────────────────────────────────────────────────────
 
 function FichaImpresa({ pj, operaciones }: { pj: any; operaciones: any[] }) {
+  const empresa = useEmpresa();
   const benefs = (pj.beneficiariosFinales as BenefRow[] | null) ?? [];
   return (
     <div id="ficha-print" className="hidden print:block bg-white text-gray-900 text-[11px] leading-relaxed p-0">
       <style>{`@media print { @page { size: A4; margin: 12mm 15mm; } }`}</style>
       <div className="text-center border-b-2 border-gray-900 pb-2 mb-3">
         <h1 className="text-base font-bold tracking-wide uppercase">Ficha de Cliente — Persona Jurídica</h1>
-        <p className="text-xs text-gray-500">ONE TRADE S.A. · Emitida: {new Date().toLocaleDateString('es-PY')}</p>
+        <p className="text-xs text-gray-500">{empresa.empresa_nombre} · Emitida: {new Date().toLocaleDateString('es-PY')}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-x-6 mb-3">
@@ -170,7 +172,7 @@ function FichaImpresa({ pj, operaciones }: { pj: any; operaciones: any[] }) {
       )}
 
       <div className="mt-8 grid grid-cols-3 gap-8 text-center">
-        {['Firma del Rep. Legal','Firma del Representante 2','Sello / Firma ONE TRADE'].map(l=>(
+        {['Firma del Rep. Legal','Firma del Representante 2',`Sello / Firma ${empresa.empresa_nombre}`].map(l=>(
           <div key={l}><div className="border-b border-gray-700 h-10 mb-1"/><p className="text-xs text-gray-500">{l}</p></div>
         ))}
       </div>
@@ -180,7 +182,7 @@ function FichaImpresa({ pj, operaciones }: { pj: any; operaciones: any[] }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const TABS = ['Datos Empresa','Rep. Legal','Transferencia','Operaciones','Calificación'] as const;
+const TABS = ['Datos Empresa','Rep. Legal','Operaciones','Transferencia'] as const;
 type Tab = typeof TABS[number];
 
 export default function ContactoPJDetalle() {
@@ -199,6 +201,8 @@ export default function ContactoPJDetalle() {
   const [bancos,        setBancos]        = useState<any[]>([]);
   const [departamentos, setDepartamentos] = useState<any[]>([]);
   const [ciudades,      setCiudades]      = useState<any[]>([]);
+  const [califEdit,     setCalifEdit]     = useState(false);
+  const [califSaving,   setCalifSaving]   = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -481,7 +485,7 @@ export default function ContactoPJDetalle() {
       case 'Rep. Legal':     return renderRepLegal();
       case 'Transferencia':  return renderTransferencia();
       case 'Operaciones':    return renderOperaciones();
-      case 'Calificación':   return renderCalificacion();
+      default: return null;
     }
   };
 
@@ -501,7 +505,34 @@ export default function ContactoPJDetalle() {
               <span className="text-gray-400 text-sm">RUC {pj.ruc}</span>
               {pj.esPep   && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">PEP</span>}
               {pj.esFatca && <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">FATCA</span>}
-              <CalBadge cal={pj.calificacionInterna}/>
+              {/* Calificación — inline editable */}
+              {califEdit ? (
+                <span className="flex items-center gap-1">
+                  <select autoFocus disabled={califSaving}
+                    value={pj.calificacionInterna ?? ''}
+                    onChange={async e => {
+                      const val = e.target.value || null;
+                      setCalifSaving(true);
+                      try {
+                        await contactosApi.actualizarEmpresa(id!, { calificacionInterna: val });
+                        setPj((p: any) => ({ ...p, calificacionInterna: val }));
+                      } catch { alert('Error al guardar calificación.'); }
+                      finally { setCalifSaving(false); setCalifEdit(false); }
+                    }}
+                    className="px-2 py-0.5 border border-blue-400 rounded text-xs font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Sin calificación</option>
+                    {CALIFICACIONES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                  <button onClick={() => setCalifEdit(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                </span>
+              ) : (
+                <button onClick={() => setCalifEdit(true)} title="Click para cambiar calificación"
+                  className="flex items-center gap-1 group hover:opacity-80 transition-opacity">
+                  <CalBadge cal={pj.calificacionInterna}/>
+                  <span className="text-gray-300 group-hover:text-gray-500 text-xs">✎</span>
+                </button>
+              )}
             </div>
             <p className="text-xs text-gray-400 mt-0.5">Persona Jurídica · {pj.nombreFantasia ?? ''}</p>
           </div>

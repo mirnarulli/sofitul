@@ -13,6 +13,10 @@ export class ConfiguracionController {
   @Get('logos')
   getLogos() { return this.svc.getLogos(); }
 
+  /** Datos empresa — público (se necesita en documentos imprimibles) */
+  @Get('empresa')
+  getEmpresa() { return this.svc.getEmpresa(); }
+
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPERADMIN', 'ADMIN')

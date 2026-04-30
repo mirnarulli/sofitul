@@ -6,7 +6,7 @@ export default function Monedas() {
   const [monedas, setMonedas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ codigo: '', nombre: '', simbolo: '', activo: true });
+  const [form, setForm] = useState({ codigo: '', nombre: '', simbolo: '', activa: true });
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -29,7 +29,7 @@ export default function Monedas() {
       }
       setShowForm(false);
       setEditId(null);
-      setForm({ codigo: '', nombre: '', simbolo: '', activo: true });
+      setForm({ codigo: '', nombre: '', simbolo: '', activa: true });
       cargar();
     } catch (err: any) {
       alert(err.response?.data?.message ?? 'Error.');
@@ -38,7 +38,7 @@ export default function Monedas() {
 
   const handleEditar = (m: any) => {
     setEditId(m.id);
-    setForm({ codigo: m.codigo, nombre: m.nombre, simbolo: m.simbolo, activo: m.activo });
+    setForm({ codigo: m.codigo, nombre: m.nombre, simbolo: m.simbolo, activa: m.activa });
     setShowForm(true);
   };
 
@@ -46,7 +46,7 @@ export default function Monedas() {
     <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Monedas</h1>
-        <button onClick={() => { setEditId(null); setForm({ codigo: '', nombre: '', simbolo: '', activo: true }); setShowForm(true); }}
+        <button onClick={() => { setEditId(null); setForm({ codigo: '', nombre: '', simbolo: '', activa: true }); setShowForm(true); }}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium">
           <Plus size={15} /> Nueva moneda
         </button>
@@ -69,7 +69,7 @@ export default function Monedas() {
             ))}
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-700 mb-4">
-            <input type="checkbox" checked={form.activo} onChange={e => setForm(x => ({ ...x, activo: e.target.checked }))} className="w-4 h-4" />
+            <input type="checkbox" checked={form.activa} onChange={e => setForm(x => ({ ...x, activa: e.target.checked }))} className="w-4 h-4" />
             Activa
           </label>
           <div className="flex gap-2">
@@ -100,8 +100,8 @@ export default function Monedas() {
                   <td className="px-4 py-3 font-medium">{m.nombre}</td>
                   <td className="px-4 py-3 text-gray-600">{m.simbolo}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.activo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {m.activo ? 'Activa' : 'Inactiva'}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.activa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {m.activa ? 'Activa' : 'Inactiva'}
                     </span>
                   </td>
                   <td className="px-4 py-3">

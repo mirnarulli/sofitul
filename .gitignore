@@ -9,6 +9,8 @@ build/
 # Environment files — nunca commitear archivos con credenciales reales
 .env
 .env.local
+.env.production
+.env.*.local
 
 # Logs
 *.log
@@ -27,6 +29,10 @@ Thumbs.db
 /tmp/
 *.tar.gz
 *.tgz
+
+# Deploy artifacts (zips y carpeta temporal de deploy.sh)
+*.zip
+_deploy_tmp/
 
 # Archivos locales / descargas
 *.pdf

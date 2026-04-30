@@ -41,4 +41,31 @@ export class ValidataController {
   getConsulta(@Param('id') id: string) {
     return this.svc.getConsulta(id);
   }
+
+  /** POST /validata/test-conexion
+   *  Verifica credenciales y devuelve resultado — solo SUPERADMIN */
+  @Post('test-conexion')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN')
+  testConexion() {
+    return this.svc.testConexion();
+  }
+
+  /** POST /validata/credenciales
+   *  Guarda credenciales en configuracion table — solo SUPERADMIN */
+  @Post('credenciales')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN')
+  setCredenciales(@Body() body: { validata_url?: string; validata_user?: string; validata_pass?: string }) {
+    return this.svc.setCredenciales(body);
+  }
+
+  /** GET /validata/credenciales
+   *  Lee credenciales actuales (pass censurado) — solo SUPERADMIN */
+  @Get('credenciales')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN')
+  getCredencialesPublic() {
+    return this.svc.getCredencialesPublic();
+  }
 }

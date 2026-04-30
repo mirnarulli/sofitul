@@ -1,0 +1,2 @@
+﻿#!/bin/bash
+docker exec postgres psql -U sofitul_admin -d sofitul_onetrade -c "SELECT COUNT(*) as pj FROM contactos_pj WHERE ruc IN ('80083044-0','80111254-0','80085231-1')" -c "SELECT COUNT(*) as pf FROM contactos_pf WHERE numero_doc IN ('3412413','1635265','4577923','918074','6741725','4953441','7407634','651544')" -c "SELECT COUNT(*) as ops FROM operaciones WHERE nro_operacion LIKE 'MIGR-%'"
