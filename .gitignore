@@ -34,6 +34,9 @@ Thumbs.db
 *.zip
 _deploy_tmp/
 
+# Build-generated version stamp (regenerado por prebuild en cada build)
+frontend/public/version.json
+
 # Archivos locales / descargas
 *.pdf
 
