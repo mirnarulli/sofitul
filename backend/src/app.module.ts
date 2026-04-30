@@ -41,6 +41,7 @@ import { CuentasTransferenciaModule }     from './cuentas-transferencia/cuentas-
 import { CuentaTransferencia }            from './cuentas-transferencia/cuenta-transferencia.entity';
 import { FeriadosModule }                 from './feriados/feriados.module';
 import { Feriado }                        from './feriados/feriado.entity';
+import { ValidataConsulta }               from './validata/entities/validata-consulta.entity';
 import { ValidataModule }                 from './validata/validata.module';
 
 @Module({
@@ -61,6 +62,7 @@ import { ValidataModule }                 from './validata/validata.module';
         ContactoPF, ContactoPJ,
         Operacion, ChequeDetalle, Cuota, EstadoOperacion, EstadoTransicion,
         Feriado,
+        ValidataConsulta,
       ],
       synchronize: process.env.NODE_ENV !== 'production',
     }),
