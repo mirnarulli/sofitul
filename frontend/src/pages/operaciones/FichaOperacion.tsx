@@ -32,7 +32,7 @@ export default function FichaOperacion() {
           ? await contactosApi.getPersonaFisicaById(o.contactoId)
           : await contactosApi.getPersonaJuridicaById(o.contactoId);
         setCliente(c);
-      } catch {}
+      } catch { /* dato secundario — la liquidación funciona sin la ficha del contacto */ }
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);

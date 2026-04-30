@@ -1,41 +1,49 @@
-import { Controller, Post, Get, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Req, UseGuards, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard } from './roles.guard';
+import { Roles } from './roles.decorator';
+import { LoginDto } from './dto/login.dto';
+import { ActivarDto } from './dto/activar.dto';
+import { OlvidePasswordDto } from './dto/olvide-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { CambiarPasswordDto } from './dto/cambiar-password.dto';
+import { InvitarDto } from './dto/invitar.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
-  login(@Body() body: { email: string; password: string }, @Req() req: any) {
+  login(@Body() body: LoginDto, @Req() req: any) {
     const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress;
     return this.authService.login(body.email, body.password, ip);
   }
 
   @Post('invitar')
-  @UseGuards(JwtAuthGuard)
-  invitar(@Body() body: any, @Req() req: any) {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
+  invitar(@Body() body: InvitarDto, @Req() req: any) {
     return this.authService.invitarUsuario({ ...body, invitadoPor: req.user.id });
   }
 
   @Post('activar')
-  activar(@Body() body: { token: string; password: string }) {
+  activar(@Body() body: ActivarDto) {
     return this.authService.activarCuenta(body.token, body.password);
   }
 
   @Get('validar-token')
-  validarToken(@Req() req: any) {
-    const token = req.query.token;
+  validarToken(@Query('token') token: string) {
     return this.authService.validarToken(token);
   }
 
   @Post('olvide-password')
-  olvideMiPassword(@Body() body: { email: string }) {
+  olvideMiPassword(@Body() body: OlvidePasswordDto) {
     return this.authService.olvideMiPassword(body.email);
   }
 
   @Post('reset-password')
-  resetPassword(@Body() body: { token: string; password: string }) {
+  resetPassword(@Body() body: ResetPasswordDto) {
     return this.authService.resetPassword(body.token, body.password);
   }
 
@@ -47,7 +55,7 @@ export class AuthController {
 
   @Post('cambiar-password')
   @UseGuards(JwtAuthGuard)
-  cambiarPassword(@Body() body: { passwordActual: string; passwordNuevo: string }, @Req() req: any) {
+  cambiarPassword(@Body() body: CambiarPasswordDto, @Req() req: any) {
     return this.authService.cambiarPassword(req.user.id, body.passwordActual, body.passwordNuevo);
   }
 

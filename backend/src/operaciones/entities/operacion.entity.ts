@@ -96,6 +96,15 @@ export class Operacion {
   @Column({ name: 'ficha_informconf_url', nullable: true }) fichaInformconfUrl: string;
   @Column({ name: 'ficha_infocheck_url',  nullable: true }) fichaInfocheckUrl: string;
 
+  /**
+   * Firmantes de la operación — array de contactos PF que firman.
+   * Para PJ: uno o más representantes legales.
+   * Para PF: el propio contacto (se rellena automáticamente).
+   * Estructura: [{ id, nombre, documento, tipo: 'pf' }]
+   */
+  @Column({ type: 'jsonb', default: '[]' })
+  firmantes: Array<{ id: string; nombre: string; documento: string; tipo: 'pf' }>;
+
   // Bitácora interna de la operación (jsonb array de eventos)
   @Column({ type: 'jsonb', default: '[]' })             bitacora: any[];
 

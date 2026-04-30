@@ -5,6 +5,8 @@ import {
   TrendingUp, AlertTriangle, CheckCircle, Clock,
 } from 'lucide-react';
 import { contactosApi, panelGlobalApi } from '../../services/contactosApi';
+import { ESTADOS_VIGENTES } from '../../utils/estados';
+import CuentasTransferencia from '../../components/CuentasTransferencia';
 import { formatDate, formatGs, diasHasta } from '../../utils/formatters';
 import StatusBadge from '../../components/StatusBadge';
 
@@ -20,7 +22,6 @@ const CALIFICACIONES = [
   { value: 'D', label: 'D — Malo',      color: 'bg-red-100 text-red-800'    },
 ];
 
-const ESTADOS_VIGENTES = ['FORMULARIO_CARGADO','DOCUMENTACION','EN_PROCESO','ACTIVA','VIGENTE','APROBADA','DESEMBOLSADA'];
 
 function CalBadge({ cal }: { cal?: string }) {
   const c = CALIFICACIONES.find(q => q.value === cal);
@@ -194,7 +195,10 @@ export default function ContactoPJDetalle() {
   const [form,       setForm]       = useState<any>({});
   const [saving,     setSaving]     = useState(false);
   const [saveMsg,    setSaveMsg]    = useState('');
-  const [paises,     setPaises]     = useState<any[]>([]);
+  const [paises,        setPaises]        = useState<any[]>([]);
+  const [bancos,        setBancos]        = useState<any[]>([]);
+  const [departamentos, setDepartamentos] = useState<any[]>([]);
+  const [ciudades,      setCiudades]      = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -203,10 +207,25 @@ export default function ContactoPJDetalle() {
       contactosApi.getOperacionesByContacto('pj', id),
       panelGlobalApi.getPaises(),
     ])
-      .then(([p, ops, ps]) => { setPj(p); setOperaciones(ops); setPaises(ps); })
+      .then(([p, ops, ps]) => {
+        setPj(p); setOperaciones(ops); setPaises(ps);
+        panelGlobalApi.getBancosActivos().then(setBancos).catch(() => {});
+        panelGlobalApi.getDepartamentos().then(setDepartamentos).catch(() => {});
+      })
       .catch(() => navigate('/contactos'))
       .finally(() => setLoading(false));
   }, [id, navigate]);
+
+  // Cascade: cargar ciudades cuando cambia el departamento seleccionado en edición
+  useEffect(() => {
+    if (!editing) return;
+    const dept = departamentos.find((d: any) => d.nombre === form.departamento);
+    if (dept) {
+      panelGlobalApi.getCiudades(dept.id).then(setCiudades).catch(() => setCiudades([]));
+    } else {
+      setCiudades([]);
+    }
+  }, [form.departamento, editing, departamentos]);
 
   if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
   if (!pj) return null;
@@ -302,8 +321,18 @@ export default function ContactoPJDetalle() {
               <Field label="Dirección"><input value={data.domicilio??''} onChange={e=>set('domicilio',e.target.value)} className={inputCls} placeholder="Calle y número"/></Field>
             </div>
             <Field label="Barrio"><input value={data.barrio??''} onChange={e=>set('barrio',e.target.value)} className={inputCls}/></Field>
-            <Field label="Ciudad"><input value={data.ciudad??''} onChange={e=>set('ciudad',e.target.value)} className={inputCls}/></Field>
-            <Field label="Departamento"><input value={data.departamento??''} onChange={e=>set('departamento',e.target.value)} className={inputCls}/></Field>
+            <Field label="Departamento">
+              <select value={data.departamento??''} onChange={e=>{ set('departamento',e.target.value); set('ciudad',''); }} className={selectCls}>
+                <option value="">Seleccione...</option>
+                {departamentos.map((d:any)=><option key={d.id} value={d.nombre}>{d.nombre}</option>)}
+              </select>
+            </Field>
+            <Field label="Ciudad">
+              <select value={data.ciudad??''} onChange={e=>set('ciudad',e.target.value)} className={selectCls} disabled={!ciudades.length}>
+                <option value="">Seleccione...</option>
+                {ciudades.map((c:any)=><option key={c.id} value={c.nombre}>{c.nombre}</option>)}
+              </select>
+            </Field>
             <Field label="Teléfono"><input value={data.telefono??''} onChange={e=>set('telefono',e.target.value)} className={inputCls}/></Field>
             <Field label="Email"><input type="email" value={data.email??''} onChange={e=>set('email',e.target.value)} className={inputCls}/></Field>
             <Field label="Sitio web"><input value={data.sitioWeb??''} onChange={e=>set('sitioWeb',e.target.value)} className={inputCls}/></Field>
@@ -369,31 +398,9 @@ export default function ContactoPJDetalle() {
     );
   };
 
-  const renderTransferencia = () => {
-    const data = editing ? form : pj;
-    if (!editing) return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 max-w-lg">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Cuenta para Acreditación</h3>
-        <dl className="space-y-3">
-          <Info label="Banco" value={data.bancoAcreditacion}/>
-          <Info label="N° de cuenta" value={data.nroCuentaAcreditacion}/>
-          <Info label="Titular de la cuenta" value={data.titularCuentaAcreditacion}/>
-          <Info label="Alias / CVU" value={data.aliasAcreditacion}/>
-        </dl>
-      </div>
-    );
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 max-w-lg">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Cuenta para Acreditación</h3>
-        <div className="space-y-3">
-          <Field label="Banco"><input value={data.bancoAcreditacion??''} onChange={e=>set('bancoAcreditacion',e.target.value)} className={inputCls}/></Field>
-          <Field label="N° de cuenta"><input value={data.nroCuentaAcreditacion??''} onChange={e=>set('nroCuentaAcreditacion',e.target.value)} className={inputCls}/></Field>
-          <Field label="Titular de la cuenta"><input value={data.titularCuentaAcreditacion??''} onChange={e=>set('titularCuentaAcreditacion',e.target.value)} className={inputCls}/></Field>
-          <Field label="Alias / CVU"><input value={data.aliasAcreditacion??''} onChange={e=>set('aliasAcreditacion',e.target.value)} className={inputCls}/></Field>
-        </div>
-      </div>
-    );
-  };
+  const renderTransferencia = () => (
+    <CuentasTransferencia contactoTipo="pj" contactoId={id!} />
+  );
 
   const renderOperaciones = () => (
     <div className="space-y-4">

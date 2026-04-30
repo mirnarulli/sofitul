@@ -44,6 +44,132 @@ export class DashboardsService {
     return { resumen: resumen[0], porCobrador, porTipo, mensual };
   }
 
+  async getDashboardOperaciones() {
+    const ACTIVOS = `('EN_COBRANZA','DESEMBOLSADO','MORA','PRORROGADO','RENOVADO','COBRADO')`;
+    const CARTERA = `('EN_COBRANZA','DESEMBOLSADO','MORA','PRORROGADO','RENOVADO')`;
+
+    const [kpis, porEstado, porCliente, porBanco, porCanal, proyeccionSemanal, vencimientosInmediatos] = await Promise.all([
+
+      // ── KPIs principales ──────────────────────────────────────────────
+      this.ds.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE estado IN ${CARTERA})::int                       AS ops_activas,
+          COALESCE(SUM(capital_invertido) FILTER (WHERE estado IN ${CARTERA}), 0) AS capital_cartera,
+          COALESCE(SUM(monto_total)       FILTER (WHERE estado IN ${CARTERA}), 0) AS valor_nominal,
+          COALESCE(SUM(ganancia_neta)     FILTER (WHERE estado IN ${CARTERA}), 0) AS ganancia_esperada,
+          COALESCE(SUM(ganancia_neta)     FILTER (WHERE estado = 'COBRADO'),   0) AS ganancia_realizada,
+          COALESCE(SUM(capital_invertido) FILTER (WHERE estado = 'COBRADO'),   0) AS capital_recuperado,
+          COUNT(*) FILTER (WHERE estado = 'MORA')::int                            AS ops_mora,
+          COUNT(*) FILTER (WHERE estado = 'COBRADO'
+            AND fecha_vencimiento::date >= DATE_TRUNC('month', CURRENT_DATE)
+            AND fecha_vencimiento::date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')::int AS cobrados_mes
+        FROM operaciones
+      `),
+
+      // ── Por estado ───────────────────────────────────────────────────
+      this.ds.query(`
+        SELECT estado,
+               COUNT(*)::int        AS cantidad,
+               SUM(capital_invertido) AS capital,
+               SUM(monto_total)       AS valor
+        FROM operaciones
+        WHERE estado IN ${ACTIVOS}
+        GROUP BY estado
+        ORDER BY capital DESC NULLS LAST
+      `),
+
+      // ── Top clientes ─────────────────────────────────────────────────
+      this.ds.query(`
+        SELECT contacto_nombre,
+               contacto_tipo,
+               contacto_doc,
+               COUNT(*)::int           AS ops,
+               SUM(capital_invertido)  AS capital,
+               SUM(monto_total)        AS valor,
+               SUM(ganancia_neta)      AS ganancia
+        FROM operaciones
+        WHERE estado IN ${CARTERA}
+        GROUP BY contacto_nombre, contacto_tipo, contacto_doc
+        ORDER BY capital DESC NULLS LAST
+        LIMIT 10
+      `),
+
+      // ── Por banco (de los cheques) ────────────────────────────────────
+      this.ds.query(`
+        SELECT cd.banco,
+               COUNT(DISTINCT o.id)::int AS ops,
+               SUM(cd.monto)             AS valor,
+               SUM(cd.capital_invertido) AS capital,
+               SUM(cd.interes)           AS interes
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id::text = cd.operacion_id
+        WHERE o.estado IN ${CARTERA}
+          AND cd.estado NOT IN ('COBRADO','PROTESTADO')
+        GROUP BY cd.banco
+        ORDER BY capital DESC NULLS LAST
+      `),
+
+      // ── Por canal ────────────────────────────────────────────────────
+      this.ds.query(`
+        SELECT COALESCE(canal, 'Sin canal') AS canal,
+               COUNT(*)::int    AS ops,
+               SUM(capital_invertido) AS capital,
+               SUM(ganancia_neta)     AS ganancia
+        FROM operaciones
+        WHERE estado IN ${CARTERA}
+        GROUP BY canal
+        ORDER BY capital DESC
+      `),
+
+      // ── Proyección semanal (próximas 16 semanas) ─────────────────────
+      this.ds.query(`
+        SELECT
+          DATE_TRUNC('week', cd.fecha_vencimiento::date) AS semana_inicio,
+          TO_CHAR(DATE_TRUNC('week', cd.fecha_vencimiento::date), 'DD Mon') AS desde,
+          TO_CHAR(DATE_TRUNC('week', cd.fecha_vencimiento::date) + INTERVAL '6 days', 'DD Mon') AS hasta,
+          COUNT(DISTINCT o.id)::int  AS cantidad,
+          SUM(cd.monto)::bigint      AS valor_cheques,
+          SUM(cd.capital_invertido)::bigint AS capital,
+          SUM(cd.interes)::bigint    AS interes
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id::text = cd.operacion_id
+        WHERE o.estado IN ${CARTERA}
+          AND cd.estado NOT IN ('COBRADO','PROTESTADO')
+          AND cd.fecha_vencimiento::date >= DATE_TRUNC('week', CURRENT_DATE)
+          AND cd.fecha_vencimiento::date < CURRENT_DATE + INTERVAL '112 days'
+        GROUP BY 1, 2, 3
+        ORDER BY 1 ASC
+      `),
+
+      // ── Vencimientos próximos 10 días ─────────────────────────────────
+      this.ds.query(`
+        SELECT o.id, o.nro_operacion, o.contacto_nombre, o.canal,
+               cd.nro_cheque, cd.banco, cd.fecha_vencimiento,
+               cd.monto::bigint,
+               cd.capital_invertido::bigint,
+               cd.interes::bigint,
+               (cd.fecha_vencimiento::date - CURRENT_DATE) AS dias_restantes
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id::text = cd.operacion_id
+        WHERE o.estado IN ${CARTERA}
+          AND cd.estado NOT IN ('COBRADO','PROTESTADO')
+          AND cd.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '10 days'
+        ORDER BY cd.fecha_vencimiento ASC
+        LIMIT 20
+      `),
+    ]);
+
+    return {
+      kpis: kpis[0],
+      porEstado,
+      porCliente,
+      porBanco,
+      porCanal,
+      proyeccionSemanal,
+      vencimientosInmediatos,
+    };
+  }
+
   async getDashboardDesembolsos() {
     const [resumen, porCaja, pendientes] = await Promise.all([
       this.ds.query(`

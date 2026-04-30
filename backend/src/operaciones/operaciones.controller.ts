@@ -20,8 +20,11 @@ function uploadsConfig(subfolder: string, prefix: string) {
       },
     }),
     fileFilter: (_req: any, file: any, cb: any) => {
-      const allowed = ['.pdf', '.jpg', '.jpeg', '.png'];
-      if (allowed.includes(extname(file.originalname).toLowerCase())) return cb(null, true);
+      const allowedExt = ['.pdf', '.jpg', '.jpeg', '.png'];
+      const allowedMime = ['application/pdf', 'image/jpeg', 'image/png'];
+      const extOk  = allowedExt.includes(extname(file.originalname).toLowerCase());
+      const mimeOk = allowedMime.includes(file.mimetype);
+      if (extOk && mimeOk) return cb(null, true);
       cb(new BadRequestException('Solo se aceptan PDF, JPG o PNG'), false);
     },
     limits: { fileSize: 10 * 1024 * 1024 },
@@ -29,6 +32,18 @@ function uploadsConfig(subfolder: string, prefix: string) {
 }
 import { OperacionesService } from './operaciones.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { CambiarEstadoDto }          from './dto/cambiar-estado.dto';
+import { CalcularInteresDto }         from './dto/calcular-interes.dto';
+import { ActualizarContratoDto }      from './dto/actualizar-contrato.dto';
+import { CreateOperacionDto }         from './dto/create-operacion.dto';
+import { UpdateOperacionDto }         from './dto/update-operacion.dto';
+import { RegistrarProrrogaDto }       from './dto/registrar-prorroga.dto';
+import { UpdateChequeDto }            from './dto/update-cheque.dto';
+import { RegistrarPagoCuotaDto }      from './dto/registrar-pago-cuota.dto';
+import { CreateEstadoOperacionDto }   from './dto/create-estado-operacion.dto';
+import { UpdateEstadoOperacionDto }   from './dto/update-estado-operacion.dto';
 
 @Controller('operaciones')
 @UseGuards(JwtAuthGuard)
@@ -51,10 +66,25 @@ export class OperacionesController {
   findEstados() { return this.svc.findEstados(); }
 
   @Post('estados')
-  createEstado(@Body() b: any) { return this.svc.createEstado(b); }
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN')
+  createEstado(@Body() b: CreateEstadoOperacionDto) { return this.svc.createEstado(b); }
+
+  @Get('estados-siguientes/:codigo')
+  getSiguientes(@Param('codigo') codigo: string) { return this.svc.getSiguientesEstados(codigo); }
+
+  @Get('transiciones')
+  getTransiciones() { return this.svc.getTransicionesMatriz(); }
+
+  @Put('transiciones')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN')
+  saveMatriz(@Body() b: { transiciones: { desdeId: string; hastaId: string }[] }) {
+    return this.svc.saveMatriz(b.transiciones ?? []);
+  }
 
   @Post('calcular-interes')
-  calcularInteres(@Body() b: { monto: number; tasaMensual: number; dias: number }) {
+  calcularInteres(@Body() b: CalcularInteresDto) {
     return { interes: OperacionesService.calcularInteres(b.monto, b.tasaMensual, b.dias) };
   }
 
@@ -63,34 +93,36 @@ export class OperacionesController {
   findById(@Param('id') id: string) { return this.svc.findById(id); }
 
   @Post()
-  create(@Body() b: any) { return this.svc.create(b, b.cheques, b.cuotas); }
+  create(@Body() b: CreateOperacionDto) { return this.svc.create(b, b.cheques, b.cuotas); }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() b: any) { return this.svc.update(id, b); }
+  update(@Param('id') id: string, @Body() b: UpdateOperacionDto) { return this.svc.update(id, b); }
 
   @Put(':id/estado')
-  cambiarEstado(@Param('id') id: string, @Body() b: { estado: string; nota?: string }, @Req() req: any) {
+  cambiarEstado(@Param('id') id: string, @Body() b: CambiarEstadoDto, @Req() req: any) {
     return this.svc.cambiarEstado(id, b.estado, b.nota, req.user?.email);
   }
 
   @Put(':id/prorroga')
-  registrarProrroga(@Param('id') id: string, @Body() b: any) {
+  registrarProrroga(@Param('id') id: string, @Body() b: RegistrarProrrogaDto) {
     return this.svc.registrarProrroga(id, b);
   }
 
   // Sub-recursos (segmentos distintos — sin conflicto con :id)
   @Put('cheques/:id')
-  updateCheque(@Param('id') id: string, @Body() b: any) { return this.svc.updateCheque(id, b); }
+  updateCheque(@Param('id') id: string, @Body() b: UpdateChequeDto) { return this.svc.updateCheque(id, b); }
 
   @Put('cuotas/:id/pagar')
-  pagarCuota(@Param('id') id: string, @Body() b: any) { return this.svc.registrarPagoCuota(id, b); }
+  pagarCuota(@Param('id') id: string, @Body() b: RegistrarPagoCuotaDto) { return this.svc.registrarPagoCuota(id, b); }
 
   @Put('estados/:id')
-  updateEstado(@Param('id') id: string, @Body() b: any) { return this.svc.updateEstado(id, b); }
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN')
+  updateEstado(@Param('id') id: string, @Body() b: UpdateEstadoOperacionDto) { return this.svc.updateEstado(id, b); }
 
   // ── Contrato TeDescuento ──────────────────────────────────────────────────
   @Put(':id/contrato')
-  actualizarContrato(@Param('id') id: string, @Body() b: { nroContratoTeDescuento?: string }) {
+  actualizarContrato(@Param('id') id: string, @Body() b: ActualizarContratoDto) {
     return this.svc.actualizarContrato(id, b);
   }
 

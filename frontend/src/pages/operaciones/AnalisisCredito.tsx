@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Printer, FileText, CheckCircle2, XCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Printer, FileText, CheckCircle2, XCircle, AlertCircle, ExternalLink, Search, Loader2, AlertTriangle } from 'lucide-react';
 import { operacionesApi } from '../../services/operacionesApi';
-import { contactosApi, panelGlobalApi } from '../../services/contactosApi';
+import { contactosApi, panelGlobalApi, validataApi } from '../../services/contactosApi';
 import { DocHeader, DocFooter } from '../../components/DocHeader';
 import { formatGs, formatDate } from '../../utils/formatters';
 
@@ -81,6 +81,11 @@ export default function AnalisisCredito() {
   const [producto,  setProducto] = useState<any>(null);
   const [loading,   setLoading]  = useState(true);
 
+  // VALIDATA
+  const [vData,     setVData]    = useState<any>(null);
+  const [vLoading,  setVLoading] = useState(false);
+  const [vError,    setVError]   = useState<string | null>(null);
+
   useEffect(() => {
     if (!id) return;
     operacionesApi.getById(id).then(async (o) => {
@@ -90,16 +95,16 @@ export default function AnalisisCredito() {
           ? await contactosApi.getPersonaFisicaById(o.contactoId)
           : await contactosApi.getPersonaJuridicaById(o.contactoId);
         setCliente(c);
-      } catch {}
+      } catch { /* dato secundario — el análisis funciona sin ficha del cliente */ }
       try {
         const hist = await contactosApi.getOperacionesByContacto(o.contactoTipo, o.contactoId);
         setHistorial((hist.data ?? hist).filter((h: any) => h.id !== id));
-      } catch {}
+      } catch { /* historial opcional */ }
       if (o.productoId) {
         try {
           const prod = await panelGlobalApi.getProductoById(o.productoId);
           setProducto(prod);
-        } catch {}
+        } catch { /* producto opcional */ }
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -109,6 +114,21 @@ export default function AnalisisCredito() {
   if (!op)     return <div className="p-8 text-center text-red-400">Operación no encontrada</div>;
 
   const esPF = op.contactoTipo === 'pf';
+
+  // ── VALIDATA ───────────────────────────────────────────────────────────────
+  async function consultarValidata() {
+    const cedula = cliente?.numeroDoc ?? op.contactoDoc;
+    if (!cedula) { setVError('No hay cédula disponible para consultar.'); return; }
+    setVLoading(true); setVError(null); setVData(null);
+    try {
+      const result = await validataApi.consultar(cedula, 'analisis-credito');
+      setVData(result);
+    } catch (err: any) {
+      setVError(err.response?.data?.message ?? 'Error al consultar VALIDATA. Verifique las credenciales del servicio.');
+    } finally {
+      setVLoading(false);
+    }
+  }
 
   // Financiero PF
   const ingresos  = (cliente?.ingresos  as any[] | null) ?? [];
@@ -329,7 +349,198 @@ export default function AnalisisCredito() {
           )}
         </Section>
 
-        {/* ── 3. Capacidad de pago (solo PF) ── */}
+        {/* ── 3. VALIDATA (solo PF) ── */}
+        {esPF && (
+          <Section title="Consulta VALIDATA" icon="🔎">
+            {/* Botón consultar */}
+            {!vData && (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={consultarValidata}
+                  disabled={vLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {vLoading
+                    ? <><Loader2 size={15} className="animate-spin" /> Consultando...</>
+                    : <><Search size={15} /> Consultar VALIDATA</>}
+                </button>
+                <span className="text-xs text-gray-400">
+                  CI: <strong>{cliente?.numeroDoc ?? op.contactoDoc ?? '—'}</strong>
+                </span>
+              </div>
+            )}
+
+            {vError && (
+              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                <span>{vError}</span>
+              </div>
+            )}
+
+            {vData && (() => {
+              const f = vData.ficha ?? {};
+              const n = vData.nomina ?? {};
+              const familiares: any[] = vData.familiares ?? [];
+
+              // Alertas
+              const alertas: { label: string; color: string }[] = [];
+              if (f.esPep || f.pep || n.esPep)
+                alertas.push({ label: 'PEP — Persona Políticamente Expuesta', color: 'bg-red-100 text-red-800 border-red-300' });
+              if (f.redam || f.tieneRedam || f.alertaRedam)
+                alertas.push({ label: 'REDAM — Registro de Violencia Doméstica', color: 'bg-orange-100 text-orange-800 border-orange-300' });
+              if (f.antecedentesPolicial || f.policial || f.alertaPolicial)
+                alertas.push({ label: 'Antecedentes Policiales', color: 'bg-orange-100 text-orange-800 border-orange-300' });
+              if (f.alertaJudicial || f.judicial)
+                alertas.push({ label: 'Antecedentes Judiciales', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' });
+
+              const histLaboral: any[] =
+                f.historialLaboral ?? f.empleos ?? n.historialLaboral ?? [];
+
+              return (
+                <div className="space-y-4 mt-3">
+                  {/* Re-consultar */}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={consultarValidata}
+                      disabled={vLoading}
+                      className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline disabled:opacity-50"
+                    >
+                      {vLoading ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                      Re-consultar
+                    </button>
+                  </div>
+
+                  {/* Alertas */}
+                  {alertas.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase mb-1.5">⚠️ Alertas</p>
+                      <div className="flex flex-wrap gap-2">
+                        {alertas.map(a => (
+                          <span key={a.label} className={`px-3 py-1 rounded-full text-xs font-bold border ${a.color}`}>
+                            {a.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {alertas.length === 0 && (
+                    <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                      <CheckCircle2 size={15} /> Sin alertas registradas
+                    </div>
+                  )}
+
+                  {/* Datos personales de VALIDATA */}
+                  {Object.keys(f).length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase mb-1.5">Datos del Registro</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+                        <div>
+                          <Row label="Nombre" value={[f.nombre, f.apellido].filter(Boolean).join(' ') || [f.primerNombre, f.segundoNombre, f.primerApellido, f.segundoApellido].filter(Boolean).join(' ') || undefined} />
+                          <Row label="Fecha nacimiento" value={f.fechaNacimiento ?? f.fechaNac} />
+                          <Row label="Sexo" value={f.sexo === 'M' ? 'Masculino' : f.sexo === 'F' ? 'Femenino' : f.sexo} />
+                          <Row label="Estado civil" value={f.estadoCivil} />
+                          <Row label="Nacionalidad" value={f.nacionalidad} />
+                        </div>
+                        <div>
+                          <Row label="Domicilio" value={f.domicilio ?? f.direccion} />
+                          <Row label="Barrio" value={f.barrio} />
+                          <Row label="Ciudad" value={f.ciudad} />
+                          <Row label="Departamento" value={f.departamento} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Nómina / IPS */}
+                  {Object.keys(n).length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase mb-1.5">Nómina / IPS</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+                        <div>
+                          <Row label="Empleador" value={n.empleador ?? n.empresa ?? n.razonSocial} />
+                          <Row label="Cargo" value={n.cargo ?? n.ocupacion} />
+                          <Row label="Salario" value={n.salario ? `Gs. ${Number(n.salario).toLocaleString('es-PY')}` : undefined} />
+                        </div>
+                        <div>
+                          <Row label="Estado IPS" value={n.estadoIPS ?? n.estado} />
+                          <Row label="Desde" value={n.fechaIngreso ?? n.desde} />
+                          <Row label="Aportes al día" value={n.aportesAlDia != null ? (n.aportesAlDia ? 'Sí' : 'No') : undefined} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Historial laboral */}
+                  {histLaboral.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase mb-1.5">Historial Laboral</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              {['Empleador', 'Cargo', 'Desde', 'Hasta'].map(h => (
+                                <th key={h} className="text-left text-gray-400 font-semibold uppercase py-1 pr-3">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {histLaboral.map((e: any, i: number) => (
+                              <tr key={i} className="border-b border-gray-50">
+                                <td className="py-1.5 pr-3 font-medium">{e.empleador ?? e.empresa ?? e.razonSocial ?? '—'}</td>
+                                <td className="py-1.5 pr-3">{e.cargo ?? e.ocupacion ?? '—'}</td>
+                                <td className="py-1.5 pr-3">{e.desde ?? e.fechaIngreso ?? '—'}</td>
+                                <td className="py-1.5">{e.hasta ?? e.fechaEgreso ?? 'Actual'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Familiares / Vínculos */}
+                  {familiares.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase mb-1.5">Vínculos Familiares</p>
+                      <div className="space-y-1.5">
+                        {familiares.map((fam: any, i: number) => {
+                          const nombre = fam.nombre ?? [fam.primerNombre, fam.primerApellido].filter(Boolean).join(' ') ?? '—';
+                          const cedFam = fam.cedula ?? fam.nroDocumento ?? fam.documento ?? fam.ci ?? '—';
+                          const parentesco = fam.parentesco ?? fam.vinculo ?? fam.tipoVinculo ?? '';
+                          return (
+                            <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm ${fam.esCliente ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-800">{nombre}</span>
+                                {parentesco && <span className="text-xs text-gray-400">({parentesco})</span>}
+                                <span className="font-mono text-xs text-gray-500">{cedFam}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {fam.esCliente
+                                  ? (
+                                    <Link to={`/contactos/pf/${fam.contactoId}`} target="_blank"
+                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline font-medium">
+                                      <ExternalLink size={11} /> Es cliente
+                                    </Link>
+                                  )
+                                  : <span className="text-xs text-gray-400">No es cliente</span>
+                                }
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {familiares.length === 0 && !histLaboral.length && Object.keys(f).length === 0 && (
+                    <p className="text-sm text-gray-400 italic">Sin datos adicionales disponibles.</p>
+                  )}
+                </div>
+              );
+            })()}
+          </Section>
+        )}
+
+        {/* ── 5. Capacidad de pago (solo PF) ── */}
         {esPF && (ingresos.length > 0 || egresos.length > 0) && (
           <Section title="Análisis de Capacidad de Pago" icon="💰">
             <div className="grid grid-cols-2 gap-6 mb-4">
@@ -410,7 +621,7 @@ export default function AnalisisCredito() {
           </Section>
         )}
 
-        {/* ── 4. Cheques ── */}
+        {/* ── 6. Cheques ── */}
         {op.cheques?.length > 0 && (
           <Section title={`Cheques (${op.cheques.length})`} icon="🏦">
             <div className="overflow-x-auto">
@@ -441,7 +652,7 @@ export default function AnalisisCredito() {
           </Section>
         )}
 
-        {/* ── 5. Informes de rigor ── */}
+        {/* ── 7. Informes de rigor ── */}
         <Section title={`Informes de Rigor${producto ? ` — ${producto.nombre}` : ''}`} icon="🔍">
           {productFormularios.length === 0 ? (
             <p className="text-sm text-gray-400 italic">No hay informes configurados para este producto.</p>
@@ -462,7 +673,7 @@ export default function AnalisisCredito() {
           )}
         </Section>
 
-        {/* ── 6. Historial del cliente ── */}
+        {/* ── 8. Historial del cliente ── */}
         <Section title={`Historial con la Empresa (${historial.length} operaciones anteriores)`} icon="📊">
           {historial.length === 0 ? (
             <p className="text-sm text-gray-400 italic">Primera operación del cliente.</p>
@@ -515,7 +726,7 @@ export default function AnalisisCredito() {
           )}
         </Section>
 
-        {/* ── 7. Checklist del legajo ── */}
+        {/* ── 9. Checklist del legajo ── */}
         <Section title={`Legajo (${legajoOk}/${legajo.length} documentos)`} icon="📁">
           {/* Barra de progreso */}
           <div className="mb-4">
@@ -553,7 +764,7 @@ export default function AnalisisCredito() {
           </div>
         </Section>
 
-        {/* ── 8. Firmas (print only) ── */}
+        {/* ── 10. Firmas (print only) ── */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 print:border print:rounded-none print:p-3">
           <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-6">✍️ Firmas y Resolución</h2>
           <div className="grid grid-cols-3 gap-8 text-center">

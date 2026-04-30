@@ -1,3 +1,7 @@
+import { useEstados } from '../context/EstadosContext';
+
+// Fallback para estados que no estén en la tabla estados_operacion
+// (cuotas, estados legacy, etc.)
 const COLORS: Record<string, string> = {
   FORMULARIO_CARGADO:     'bg-gray-100 text-gray-600',
   DATOS_PENDIENTES:       'bg-amber-100 text-amber-700',
@@ -25,11 +29,47 @@ const COLORS: Record<string, string> = {
   PAGADO:                 'bg-green-100 text-green-700',
 };
 
-export default function StatusBadge({ estado, label }: { estado: string; label?: string }) {
+/**
+ * Convierte un color hex a un inline style para el badge.
+ * Fondo: hex con 15 % de opacidad (#rrggbb25)
+ * Texto: el mismo hex (readable sobre fondo muy claro)
+ */
+function hexToStyle(hex: string): React.CSSProperties {
+  return {
+    backgroundColor: hex + '25', // ~15 % opacidad — equivale a bg-blue-100
+    color:           hex,
+  };
+}
+
+interface Props {
+  estado:  string;
+  label?:  string;  // sobreescribe tanto el nombre del DB como el código
+}
+
+export default function StatusBadge({ estado, label }: Props) {
+  const estadosMap = useEstados();
+  const info       = estadosMap[estado];
+
+  // Prioridad: label prop > nombre del DB > código formateado
+  const texto = label ?? info?.nombre ?? estado.replace(/_/g, ' ');
+
+  // Si el DB tiene un color configurado y no está vacío → inline style dinámico
+  if (info?.color) {
+    return (
+      <span
+        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+        style={hexToStyle(info.color)}
+      >
+        {texto}
+      </span>
+    );
+  }
+
+  // Fallback: clase Tailwind hardcodeada (estados de cuota, legacy, sin color DB)
   const cls = COLORS[estado] ?? 'bg-gray-100 text-gray-500';
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>
-      {label ?? estado.replace(/_/g, ' ')}
+      {texto}
     </span>
   );
 }

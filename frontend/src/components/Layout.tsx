@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   FileText, Users, Wallet, Settings, Coins, Globe, UserCog, LogOut,
   ChevronDown, ChevronRight, Menu, X, Landmark, BarChart2, TrendingUp,
-  ClipboardList, Bell, LayoutDashboard, Plus, Tag, Briefcase, Calculator, Package,
+  ClipboardList, Bell, LayoutDashboard, Plus, Tag, Briefcase, Calculator, Package, ShieldOff, CalendarDays,
 } from 'lucide-react';
 import { useLogos } from '../context/LogosContext';
 import { canView, type Modulo } from '../utils/permisos';
@@ -79,8 +79,11 @@ const MODULES: NavModule[] = [
         { icon: Globe,          label: 'Países',               path: '/panel/paises' },
         { icon: FileText,       label: 'Tipos de documento',   path: '/panel/tipos-documento' },
         { icon: Package,        label: 'Productos Financieros', path: '/panel/productos-financieros' },
-        { icon: ClipboardList,  label: 'Informes de Rigor',    path: '/panel/informes-rigor' },
+        { icon: ClipboardList,  label: 'Servicios Datos',       path: '/panel/informes-rigor' },
         { icon: FileText,       label: 'Tipos Doc. Adjunto',   path: '/panel/tipos-doc-adjunto' },
+        { icon: Landmark,       label: 'Bancos',               path: '/panel/bancos' },
+        { icon: CalendarDays,   label: 'Feriados',             path: '/panel/feriados' },
+        { icon: ShieldOff,      label: 'Clientes Vetados',     path: '/panel/clientes-vetados' },
         { icon: LayoutDashboard, label: 'Configuración',       path: '/panel/configuracion' },
       ],
     }],

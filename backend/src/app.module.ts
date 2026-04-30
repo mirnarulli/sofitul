@@ -3,13 +3,14 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero, TipoDocumentoAdjunto, InformeRigor } from './entities';
+import { Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero, TipoDocumentoAdjunto, InformeRigor, OperacionInformeRigor, Banco, ClienteVetado, Departamento, Ciudad } from './entities';
 import { ContactoPF } from './contactos/entities/contacto-pf.entity';
 import { ContactoPJ } from './contactos/entities/contacto-pj.entity';
 import { Operacion } from './operaciones/entities/operacion.entity';
 import { ChequeDetalle } from './operaciones/entities/cheque-detalle.entity';
 import { Cuota } from './operaciones/entities/cuota.entity';
 import { EstadoOperacion } from './operaciones/entities/estado-operacion.entity';
+import { EstadoTransicion } from './operaciones/entities/estado-transicion.entity';
 
 import { BitacoraModule }          from './bitacora/bitacora.module';
 import { AuthModule }              from './auth/auth.module';
@@ -31,7 +32,16 @@ import { InventarioCapitalModule } from './inventario-capital/inventario-capital
 import { DashboardsModule }        from './dashboards/dashboards.module';
 import { DocumentosContactoModule } from './documentos-contacto/documentos-contacto.module';
 import { DocumentoContacto }        from './documentos-contacto/documento-contacto.entity';
-import { InformesRigorModule }      from './informes-rigor/informes-rigor.module';
+import { InformesRigorModule }             from './informes-rigor/informes-rigor.module';
+import { OperacionInformesRigorModule }    from './operacion-informes-rigor/operacion-informes-rigor.module';
+import { BancosModule }                   from './bancos/bancos.module';
+import { ClientesVetadosModule }          from './clientes-vetados/clientes-vetados.module';
+import { GeoModule }                      from './geo/geo.module';
+import { CuentasTransferenciaModule }     from './cuentas-transferencia/cuentas-transferencia.module';
+import { CuentaTransferencia }            from './cuentas-transferencia/cuenta-transferencia.entity';
+import { FeriadosModule }                 from './feriados/feriados.module';
+import { Feriado }                        from './feriados/feriado.entity';
+import { ValidataModule }                 from './validata/validata.module';
 
 @Module({
   imports: [
@@ -46,11 +56,13 @@ import { InformesRigorModule }      from './informes-rigor/informes-rigor.module
       database: process.env.DB_NAME     ?? (() => { throw new Error('DB_NAME no configurado'); })(),
       entities: [
         Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero,
-        TipoDocumentoAdjunto, DocumentoContacto, InformeRigor,
+        TipoDocumentoAdjunto, DocumentoContacto, InformeRigor, OperacionInformeRigor,
+        Banco, ClienteVetado, Departamento, Ciudad, CuentaTransferencia,
         ContactoPF, ContactoPJ,
-        Operacion, ChequeDetalle, Cuota, EstadoOperacion,
+        Operacion, ChequeDetalle, Cuota, EstadoOperacion, EstadoTransicion,
+        Feriado,
       ],
-      synchronize: true,
+      synchronize: process.env.NODE_ENV !== 'production',
     }),
     BitacoraModule,
     AuthModule,
@@ -72,6 +84,13 @@ import { InformesRigorModule }      from './informes-rigor/informes-rigor.module
     DashboardsModule,
     DocumentosContactoModule,
     InformesRigorModule,
+    OperacionInformesRigorModule,
+    BancosModule,
+    ClientesVetadosModule,
+    GeoModule,
+    CuentasTransferenciaModule,
+    FeriadosModule,
+    ValidataModule,
   ],
 })
 export class AppModule {}

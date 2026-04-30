@@ -26,8 +26,11 @@ function docStorage() {
 }
 
 function docFileFilter(_req: any, file: any, cb: any) {
-  const allowed = ['.pdf', '.jpg', '.jpeg', '.png'];
-  if (allowed.includes(extname(file.originalname).toLowerCase())) return cb(null, true);
+  const allowedExt  = ['.pdf', '.jpg', '.jpeg', '.png'];
+  const allowedMime = ['application/pdf', 'image/jpeg', 'image/png'];
+  const extOk  = allowedExt.includes(extname(file.originalname).toLowerCase());
+  const mimeOk = allowedMime.includes(file.mimetype);
+  if (extOk && mimeOk) return cb(null, true);
   cb(new BadRequestException('Solo se aceptan PDF, JPG o PNG'), false);
 }
 

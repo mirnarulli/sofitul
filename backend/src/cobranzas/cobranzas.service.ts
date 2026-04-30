@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { OperacionesService } from '../operaciones/operaciones.service';
 import { MailService } from '../mail/mail.service';
+import { ESTADO_OP } from '../common/constants/estado-operacion.constants';
 
 @Injectable()
 export class CobranzasService {
@@ -65,9 +66,7 @@ export class CobranzasService {
     nota?: string;
     emailDestino?: string;
   }) {
-    const result = await this.operSvc.update(operacionId, {
-      estado: 'COBRADO',
-    } as any);
+    const result = await this.operSvc.cambiarEstado(operacionId, ESTADO_OP.COBRADO, data.nota);
 
     if (data.emailDestino) {
       await this.mailSvc.enviarRecibo(data.emailDestino, 'Recibo de pago — SOFITUL', `

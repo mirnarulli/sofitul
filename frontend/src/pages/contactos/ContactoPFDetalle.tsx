@@ -6,7 +6,9 @@ import {
 } from 'lucide-react';
 import { contactosApi, panelGlobalApi, documentosContactoApi } from '../../services/contactosApi';
 import { formatDate, formatGs, diasHasta } from '../../utils/formatters';
+import { ESTADOS_VIGENTES } from '../../utils/estados';
 import StatusBadge from '../../components/StatusBadge';
+import CuentasTransferencia from '../../components/CuentasTransferencia';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -20,7 +22,6 @@ const CALIFICACIONES = [
   { value: 'D', label: 'D — Malo',      color: 'bg-red-100 text-red-800'    },
 ];
 
-const ESTADOS_VIGENTES = ['FORMULARIO_CARGADO','DOCUMENTACION','EN_PROCESO','ACTIVA','VIGENTE','APROBADA','DESEMBOLSADA'];
 
 function CalBadge({ cal }: { cal?: string }) {
   const c = CALIFICACIONES.find(q => q.value === cal);
@@ -437,8 +438,11 @@ export default function ContactoPFDetalle() {
   const [form,       setForm]       = useState<any>({});
   const [saving,     setSaving]     = useState(false);
   const [saveMsg,    setSaveMsg]    = useState('');
-  const [tiposDoc,   setTiposDoc]   = useState<any[]>([]);
-  const [paises,     setPaises]     = useState<any[]>([]);
+  const [tiposDoc,      setTiposDoc]      = useState<any[]>([]);
+  const [paises,        setPaises]        = useState<any[]>([]);
+  const [bancos,        setBancos]        = useState<any[]>([]);
+  const [departamentos, setDepartamentos] = useState<any[]>([]);
+  const [ciudades,      setCiudades]      = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -458,10 +462,23 @@ export default function ContactoPFDetalle() {
         // Cargar documentos adjuntos y tipos
         documentosContactoApi.getByContacto('pf', id).then(setDocumentos).catch(() => {});
         documentosContactoApi.getTiposActivos().then(setTiposAdj).catch(() => {});
+        panelGlobalApi.getBancosActivos().then(setBancos).catch(() => {});
+        panelGlobalApi.getDepartamentos().then(setDepartamentos).catch(() => {});
       })
       .catch(() => navigate('/contactos'))
       .finally(() => setLoading(false));
   }, [id, navigate]);
+
+  // Cargar ciudades al cambiar departamento en modo edición
+  useEffect(() => {
+    if (!editing) return;
+    const dept = departamentos.find((d: any) => d.nombre === form.departamento);
+    if (dept) {
+      panelGlobalApi.getCiudades(dept.id).then(setCiudades).catch(() => setCiudades([]));
+    } else {
+      setCiudades([]);
+    }
+  }, [form.departamento, editing, departamentos]);
 
   if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
   if (!pf) return null;
@@ -659,8 +676,22 @@ export default function ContactoPFDetalle() {
               <Field label="Dirección"><input value={data.domicilio??''} onChange={e=>set('domicilio',e.target.value)} className={inputCls} placeholder="Calle y número"/></Field>
             </div>
             <Field label="Barrio"><input value={data.barrio??''} onChange={e=>set('barrio',e.target.value)} className={inputCls}/></Field>
-            <Field label="Ciudad"><input value={data.ciudad??''} onChange={e=>set('ciudad',e.target.value)} className={inputCls}/></Field>
-            <Field label="Departamento"><input value={data.departamento??''} onChange={e=>set('departamento',e.target.value)} className={inputCls}/></Field>
+            <Field label="Departamento">
+              <select value={data.departamento??''} onChange={e=>{ set('departamento',e.target.value); set('ciudad',''); }} className={selectCls}>
+                <option value="">— Seleccionar —</option>
+                {departamentos.map((d:any)=><option key={d.id} value={d.nombre}>{d.nombre}</option>)}
+              </select>
+            </Field>
+            <Field label="Ciudad">
+              {ciudades.length > 0 ? (
+                <select value={data.ciudad??''} onChange={e=>set('ciudad',e.target.value)} className={selectCls}>
+                  <option value="">— Seleccionar —</option>
+                  {ciudades.map((c:any)=><option key={c.id} value={c.nombre}>{c.nombre}</option>)}
+                </select>
+              ) : (
+                <input value={data.ciudad??''} onChange={e=>set('ciudad',e.target.value)} className={inputCls} placeholder={data.departamento ? 'Ingrese ciudad' : 'Seleccioná departamento primero'}/>
+              )}
+            </Field>
             <Field label="Teléfono"><input value={data.telefono??''} onChange={e=>set('telefono',e.target.value)} className={inputCls}/></Field>
             <Field label="Celular"><input value={data.celular??''} onChange={e=>set('celular',e.target.value)} className={inputCls}/></Field>
             <Field label="Email"><input type="email" value={data.email??''} onChange={e=>set('email',e.target.value)} className={inputCls}/></Field>
@@ -777,31 +808,9 @@ export default function ContactoPFDetalle() {
     );
   };
 
-  const renderTransferencia = () => {
-    const data = editing ? form : pf;
-    if (!editing) return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 max-w-lg">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Cuenta para Acreditación</h3>
-        <dl className="space-y-3">
-          <Info label="Banco" value={data.bancoAcreditacion}/>
-          <Info label="N° de cuenta" value={data.nroCuentaAcreditacion}/>
-          <Info label="Titular de la cuenta" value={data.titularCuentaAcreditacion}/>
-          <Info label="Alias / CVU" value={data.aliasAcreditacion}/>
-        </dl>
-      </div>
-    );
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-5 max-w-lg">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Cuenta para Acreditación</h3>
-        <div className="space-y-3">
-          <Field label="Banco"><input value={data.bancoAcreditacion??''} onChange={e=>set('bancoAcreditacion',e.target.value)} className={inputCls}/></Field>
-          <Field label="N° de cuenta"><input value={data.nroCuentaAcreditacion??''} onChange={e=>set('nroCuentaAcreditacion',e.target.value)} className={inputCls}/></Field>
-          <Field label="Titular de la cuenta"><input value={data.titularCuentaAcreditacion??''} onChange={e=>set('titularCuentaAcreditacion',e.target.value)} className={inputCls}/></Field>
-          <Field label="Alias / CVU"><input value={data.aliasAcreditacion??''} onChange={e=>set('aliasAcreditacion',e.target.value)} className={inputCls}/></Field>
-        </div>
-      </div>
-    );
-  };
+  const renderTransferencia = () => (
+    <CuentasTransferencia contactoTipo="pf" contactoId={id!} />
+  );
 
   const renderOperaciones = () => (
     <div className="space-y-4">

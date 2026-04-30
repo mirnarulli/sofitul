@@ -42,9 +42,10 @@ export const panelGlobalApi = {
   createPais:        (b: any)                  => api.post('/paises', b).then(r => r.data),
   updatePais:        (id: string, b: any)      => api.put(`/paises/${id}`, b).then(r => r.data),
 
-  getTiposDocumento:       ()                  => api.get('/tipos-documento').then(r => r.data),
-  createTipoDocumento:     (b: any)            => api.post('/tipos-documento', b).then(r => r.data),
-  updateTipoDocumento:     (id: string, b: any) => api.put(`/tipos-documento/${id}`, b).then(r => r.data),
+  getTiposDocumento:          ()                  => api.get('/tipos-documento').then(r => r.data),
+  getTiposDueDiligencia:      ()                  => api.get('/tipos-documento/due-diligencia').then(r => r.data),
+  createTipoDocumento:        (b: any)            => api.post('/tipos-documento', b).then(r => r.data),
+  updateTipoDocumento:        (id: string, b: any) => api.put(`/tipos-documento/${id}`, b).then(r => r.data),
 
   getEstadosOperacion:     ()                  => api.get('/operaciones/estados').then(r => r.data),
   createEstadoOperacion:   (b: any)            => api.post('/operaciones/estados', b).then(r => r.data),
@@ -71,17 +72,51 @@ export const panelGlobalApi = {
   addFormularioProducto:     (id: string, b: any)      => api.post(`/productos-financieros/${id}/formularios`, b).then(r => r.data),
   removeFormularioProducto:  (id: string, fid: string) => api.delete(`/productos-financieros/${id}/formularios/${fid}`).then(r => r.data),
 
-  // Informes de Rigor
+  // Servicios Datos (antes "Informes de Rigor")
   getInformesRigor:          ()                        => api.get('/informes-rigor').then(r => r.data),
-  getInformesRigorActivos:   (aplicaA?: string)        => api.get('/informes-rigor/activos', { params: aplicaA ? { aplicaA } : {} }).then(r => r.data),
+  getInformesRigorActivos:   (tipoInforme?: string)    => api.get('/informes-rigor/activos', { params: tipoInforme ? { tipoInforme } : {} }).then(r => r.data),
   createInformeRigor:        (b: any)                  => api.post('/informes-rigor', b).then(r => r.data),
   updateInformeRigor:        (id: string, b: any)      => api.put(`/informes-rigor/${id}`, b).then(r => r.data),
+
+  // Operación Due Diligence
+  getOperacionInformes:      (operacionId: string)     => api.get('/operacion-informes-rigor', { params: { operacionId } }).then(r => r.data),
+  initOperacionInformes:     (items: any[])            => api.post('/operacion-informes-rigor/init', { items }).then(r => r.data),
+  updateOperacionInforme:    (id: string, b: any)      => api.put(`/operacion-informes-rigor/${id}`, b).then(r => r.data),
+  deleteOperacionInforme:    (id: string)              => api.delete(`/operacion-informes-rigor/${id}`).then(r => r.data),
+  uploadOperacionInforme:    (id: string, file: File)  => {
+    const fd = new FormData(); fd.append('file', file);
+    return api.post(`/operacion-informes-rigor/${id}/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  },
 
   getFrases:         ()                        => api.get('/frases').then(r => r.data),
   getFraseDelDia:    ()                        => api.get('/frases/del-dia').then(r => r.data),
   createFrase:       (b: any)                  => api.post('/frases', b).then(r => r.data),
   updateFrase:       (id: string, b: any)      => api.put(`/frases/${id}`, b).then(r => r.data),
   deleteFrase:       (id: string)              => api.delete(`/frases/${id}`).then(r => r.data),
+
+  // Bancos
+  getBancos:         ()                        => api.get('/bancos').then(r => r.data),
+  getBancosActivos:  ()                        => api.get('/bancos/activos').then(r => r.data),
+  createBanco:       (b: any)                  => api.post('/bancos', b).then(r => r.data),
+  updateBanco:       (id: string, b: any)      => api.put(`/bancos/${id}`, b).then(r => r.data),
+
+  // Clientes vetados
+  getClientesVetados:      (q?: string)         => api.get('/clientes-vetados', { params: q ? { q } : {} }).then(r => r.data),
+  verificarVeto:            (doc: string)        => api.get(`/clientes-vetados/verificar/${doc}`).then(r => r.data),
+  createClienteVetado:      (b: any)             => api.post('/clientes-vetados', b).then(r => r.data),
+  updateClienteVetado:      (id: string, b: any) => api.put(`/clientes-vetados/${id}`, b).then(r => r.data),
+
+  // Geo (departamentos / ciudades)
+  getDepartamentos:         ()                              => api.get('/geo/departamentos').then(r => r.data),
+  getCiudades:              (departamentoId?: number)       => api.get('/geo/ciudades', { params: departamentoId ? { departamentoId } : {} }).then(r => r.data),
+
+  // Feriados
+  getFeriados:              (año?: number)                  => api.get('/feriados', { params: año ? { año } : {} }).then(r => r.data),
+  createFeriado:            (b: any)                        => api.post('/feriados', b).then(r => r.data),
+  updateFeriado:            (id: number, b: any)            => api.put(`/feriados/${id}`, b).then(r => r.data),
+  deleteFeriado:            (id: number)                    => api.delete(`/feriados/${id}`).then(r => r.data),
+  esHabil:                  (fecha: string)                 => api.get('/feriados/es-habil', { params: { fecha } }).then(r => r.data),
+  proximoHabil:             (fecha: string)                 => api.get('/feriados/proximo-habil', { params: { fecha } }).then(r => r.data),
 };
 
 export const usuariosApi = {
@@ -133,4 +168,19 @@ export const documentosContactoApi = {
 
 export const bitacoraApi = {
   getAll: (params?: any) => api.get('/bitacora', { params }).then(r => r.data),
+};
+
+export const validataApi = {
+  /** Consulta ficha completa + nómina FP + familiares (con flag esCliente).
+   *  `origen` se guarda en bitácora para trazabilidad. */
+  consultar: (cedula: string, origen?: string) =>
+    api.post('/validata/consultar', { cedula, origen }).then(r => r.data),
+
+  /** Historial de consultas (solo ADMIN/SUPERADMIN) */
+  getHistorial: (params?: { cedula?: string; page?: number; limit?: number }) =>
+    api.get('/validata/consultas', { params }).then(r => r.data),
+
+  /** Detalle completo de una consulta guardada */
+  getConsulta: (id: string) =>
+    api.get(`/validata/consultas/${id}`).then(r => r.data),
 };

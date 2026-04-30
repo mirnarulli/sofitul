@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { OperacionesService } from '../operaciones/operaciones.service';
+import { ESTADO_OP } from '../common/constants/estado-operacion.constants';
 
 @Injectable()
 export class TesoreriaService {
@@ -15,7 +16,7 @@ export class TesoreriaService {
       SELECT o.*, c.nombre AS caja_nombre
       FROM operaciones o
       LEFT JOIN cajas c ON c.id = o.caja_id
-      WHERE o.estado = 'EN_TESORERIA'
+      WHERE o.estado = '${ESTADO_OP.EN_TESORERIA}'
       ORDER BY o.created_at ASC
     `);
   }
@@ -36,7 +37,7 @@ export class TesoreriaService {
       [operacionId, data.cajaId],
     );
 
-    return this.operSvc.cambiarEstado(operacionId, 'DESEMBOLSADO', data.nota);
+    return this.operSvc.cambiarEstado(operacionId, ESTADO_OP.DESEMBOLSADO, data.nota);
   }
 
   async registrarRecepcionPagare(operacionId: string, fecha: string) {
@@ -51,7 +52,7 @@ export class TesoreriaService {
     return this.ds.query(`
       SELECT id, nro_operacion, contacto_nombre, fecha_desembolso
       FROM operaciones
-      WHERE estado = 'DESEMBOLSADO' AND pagare_recibido = false
+      WHERE estado = '${ESTADO_OP.DESEMBOLSADO}' AND pagare_recibido = false
       ORDER BY fecha_desembolso ASC
     `);
   }

@@ -13,7 +13,7 @@ import { BitacoraModule } from '../bitacora/bitacora.module';
     PassportModule,
     JwtModule.registerAsync({
       useFactory: () => ({
-        secret: process.env.JWT_SECRET || 'fallback-secret',
+        secret: process.env.JWT_SECRET ?? (() => { throw new Error('JWT_SECRET no configurado'); })(),
         signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '24h') as any },
       }),
     }),

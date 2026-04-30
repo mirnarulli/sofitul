@@ -1,9 +1,12 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { InventarioCapitalService } from './inventario-capital.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('inventario-capital')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('SUPERADMIN', 'ADMIN')
 export class InventarioCapitalController {
   constructor(private svc: InventarioCapitalService) {}
 

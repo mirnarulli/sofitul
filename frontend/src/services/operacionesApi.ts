@@ -5,12 +5,16 @@ export const operacionesApi = {
   getById:           (id: string)          => api.get(`/operaciones/${id}`).then(r => r.data),
   create:            (body: any)           => api.post('/operaciones', body).then(r => r.data),
   update:            (id: string, b: any)  => api.put(`/operaciones/${id}`, b).then(r => r.data),
+  updateFirmantes:   (id: string, firmantes: any[]) => api.put(`/operaciones/${id}`, { firmantes }).then(r => r.data),
   cambiarEstado:     (id: string, b: any)  => api.put(`/operaciones/${id}/estado`, b).then(r => r.data),
   registrarProrroga: (id: string, b: any)  => api.put(`/operaciones/${id}/prorroga`, b).then(r => r.data),
   updateCheque:      (id: string, b: any)  => api.put(`/operaciones/cheques/${id}`, b).then(r => r.data),
   pagarCuota:        (id: string, b: any)  => api.put(`/operaciones/cuotas/${id}/pagar`, b).then(r => r.data),
-  getEstados:        ()                    => api.get('/operaciones/estados').then(r => r.data),
-  calcularInteres:   (b: any)              => api.post('/operaciones/calcular-interes', b).then(r => r.data),
+  getEstados:           ()                     => api.get('/operaciones/estados').then(r => r.data),
+  getSiguientesEstados: (codigo: string)       => api.get(`/operaciones/estados-siguientes/${codigo}`).then(r => r.data),
+  getTransicionesMatriz: ()                    => api.get('/operaciones/transiciones').then(r => r.data),
+  saveMatriz:           (transiciones: any[])  => api.put('/operaciones/transiciones', { transiciones }).then(r => r.data),
+  calcularInteres:      (b: any)               => api.post('/operaciones/calcular-interes', b).then(r => r.data),
   actualizarContrato: (id: string, b: { nroContratoTeDescuento?: string }) =>
     api.put(`/operaciones/${id}/contrato`, b).then(r => r.data),
   uploadContrato: (id: string, file: File) => {
@@ -55,6 +59,7 @@ export const inventarioApi = {
 };
 
 export const dashboardsApi = {
-  getRecupero:    () => api.get('/dashboards/recupero').then(r => r.data),
-  getDesembolsos: () => api.get('/dashboards/desembolsos').then(r => r.data),
+  getRecupero:       () => api.get('/dashboards/recupero').then(r => r.data),
+  getDesembolsos:    () => api.get('/dashboards/desembolsos').then(r => r.data),
+  getOperaciones:    () => api.get('/dashboards/operaciones').then(r => r.data),
 };

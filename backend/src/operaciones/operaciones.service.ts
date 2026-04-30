@@ -1,19 +1,33 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { In, Repository, DataSource } from 'typeorm';
+import { ESTADO_OP, ESTADO_CUOTA } from '../common/constants/estado-operacion.constants';
 import { Operacion } from './entities/operacion.entity';
 import { ChequeDetalle } from './entities/cheque-detalle.entity';
 import { Cuota } from './entities/cuota.entity';
 import { EstadoOperacion } from './entities/estado-operacion.entity';
+import { EstadoTransicion } from './entities/estado-transicion.entity';
+import { FeriadosService } from '../feriados/feriados.service';
+import { CreateOperacionDto } from './dto/create-operacion.dto';
+import { UpdateOperacionDto } from './dto/update-operacion.dto';
+import { UpdateChequeDto } from './dto/update-cheque.dto';
+import { CreateEstadoOperacionDto } from './dto/create-estado-operacion.dto';
+import { UpdateEstadoOperacionDto } from './dto/update-estado-operacion.dto';
+import { RegistrarProrrogaDto } from './dto/registrar-prorroga.dto';
+import { RegistrarPagoCuotaDto } from './dto/registrar-pago-cuota.dto';
+import { CreateChequeDetalleDto } from './dto/create-cheque-detalle.dto';
+import { CreateCuotaDto } from './dto/create-cuota.dto';
 
 @Injectable()
 export class OperacionesService {
   constructor(
-    @InjectRepository(Operacion)       private operRepo: Repository<Operacion>,
-    @InjectRepository(ChequeDetalle)   private chequeRepo: Repository<ChequeDetalle>,
-    @InjectRepository(Cuota)           private cuotaRepo: Repository<Cuota>,
-    @InjectRepository(EstadoOperacion) private estadoRepo: Repository<EstadoOperacion>,
-    @InjectDataSource()                private ds: DataSource,
+    @InjectRepository(Operacion)         private operRepo: Repository<Operacion>,
+    @InjectRepository(ChequeDetalle)     private chequeRepo: Repository<ChequeDetalle>,
+    @InjectRepository(Cuota)             private cuotaRepo: Repository<Cuota>,
+    @InjectRepository(EstadoOperacion)   private estadoRepo: Repository<EstadoOperacion>,
+    @InjectRepository(EstadoTransicion)  private transRepo: Repository<EstadoTransicion>,
+    @InjectDataSource()                  private ds: DataSource,
+    private feriadosSvc: FeriadosService,
   ) {}
 
   // ── Número de operación ───────────────────────────────────────────────────
@@ -57,9 +71,9 @@ export class OperacionesService {
 
   // ── Crear ─────────────────────────────────────────────────────────────────
   async create(
-    data: Record<string, any>,
-    cheques?: Partial<ChequeDetalle>[],
-    cuotas?: Partial<Cuota>[],
+    data: CreateOperacionDto,
+    cheques?: CreateChequeDetalleDto[],
+    cuotas?: CreateCuotaDto[],
   ) {
     const nroOperacion = await this.generarNro();
 
@@ -81,14 +95,60 @@ export class OperacionesService {
         nroOperacion,
         gananciaNeta,
         fechaVencimiento,
-        estado: data.estado ?? 'EN_ANALISIS',
+        estado: data.estado ?? ESTADO_OP.EN_ANALISIS,
         bitacora: [],
       }),
     );
 
+    // ── Ajustar cheques que vencen en fin de semana o feriado ────────────────
+    // Si la fecha de vencimiento no es hábil, se corre al próximo día hábil
+    // y se recalcula el interés por los días adicionales.
     let savedCheques: ChequeDetalle[] = [];
     if (cheques?.length) {
-      const items = cheques.map(c => this.chequeRepo.create({ ...c, operacionId: operacion.id }));
+      const chequesAjustados = await Promise.all(
+        cheques.map(async (c) => {
+          if (!c.fechaVencimiento) return c;
+          const fechaOrig = new Date(c.fechaVencimiento + 'T00:00:00');
+          const { fecha: fechaAjustada, diasExtra } = await this.feriadosSvc.ajustarFecha(fechaOrig);
+          if (diasExtra === 0) return c;
+
+          const tasa       = Number(c.tasaMensual    ?? 0);
+          const capital    = Number(c.capitalInvertido ?? 0);
+          const diasOrig   = Number(c.dias            ?? 30);
+          const diasNuevos = diasOrig + diasExtra;
+
+          const interesOrig  = Math.round(capital * (tasa / 100) * (diasOrig   / 30));
+          const interesNuevo = Math.round(capital * (tasa / 100) * (diasNuevos / 30));
+          const comision     = Number(c.comision ?? 0);
+
+          return {
+            ...c,
+            fechaVencimiento: fechaAjustada.toISOString().split('T')[0],
+            dias:    diasNuevos,
+            interes: interesNuevo,
+            monto:   capital + interesNuevo + comision,
+            // anotamos el ajuste en observaciones para trazabilidad
+            observaciones: [
+              c.observaciones,
+              `Vencimiento ajustado +${diasExtra}d por feriado/fin de semana (interés recalculado)`,
+            ].filter(Boolean).join(' | '),
+          };
+        }),
+      );
+
+      // Recalcular totales de la operación con los cheques ajustados
+      const totalInteres = chequesAjustados.reduce((s, c) => s + Number(c.interes ?? 0), 0);
+      const totalMonto   = chequesAjustados.reduce((s, c) => s + Number(c.monto ?? 0), 0);
+      const totalCapital = chequesAjustados.reduce((s, c) => s + Number(c.capitalInvertido ?? 0), 0);
+      await this.operRepo.update(operacion.id, {
+        interesTotal:     totalInteres,
+        montoTotal:       totalMonto,
+        capitalInvertido: totalCapital,
+        gananciaNeta:     totalInteres,
+        netoDesembolsar:  totalCapital,
+      });
+
+      const items = chequesAjustados.map(c => this.chequeRepo.create({ ...c, operacionId: operacion.id }));
       savedCheques = await this.chequeRepo.save(items);
     }
 
@@ -102,7 +162,7 @@ export class OperacionesService {
         interes:          Number(c.interes),
         total:            Number(c.monto),
         saldo:            Number(c.monto),
-        estado:           'PENDIENTE',
+        estado:           ESTADO_CUOTA.PENDIENTE,
       }));
     }
 
@@ -115,7 +175,7 @@ export class OperacionesService {
   }
 
   // ── Actualizar ────────────────────────────────────────────────────────────
-  async update(id: string, data: Partial<Operacion>) {
+  async update(id: string, data: UpdateOperacionDto) {
     await this.operRepo.update(id, data);
     return this.findById(id);
   }
@@ -124,6 +184,26 @@ export class OperacionesService {
   async cambiarEstado(id: string, estado: string, nota?: string, usuarioEmail?: string) {
     const op = await this.operRepo.findOne({ where: { id } });
     if (!op) throw new NotFoundException('Operación no encontrada');
+
+    // Validar transición si existe la matriz configurada
+    if (op.estado && op.estado !== estado) {
+      const desde = await this.estadoRepo.findOne({ where: { codigo: op.estado } });
+      const hasta = await this.estadoRepo.findOne({ where: { codigo: estado } });
+
+      if (desde && hasta) {
+        const totalTransDesde = await this.transRepo.count({ where: { desdeId: desde.id } });
+        if (totalTransDesde > 0) {
+          const permitida = await this.transRepo.findOne({
+            where: { desdeId: desde.id, hastaId: hasta.id },
+          });
+          if (!permitida) {
+            throw new BadRequestException(
+              `Transición de "${desde.nombre}" → "${hasta.nombre}" no está permitida por la matriz de flujo.`,
+            );
+          }
+        }
+      }
+    }
 
     const bitacora = [...(op.bitacora ?? []), {
       fecha:   new Date().toISOString(),
@@ -138,7 +218,7 @@ export class OperacionesService {
   }
 
   // ── Prórroga ──────────────────────────────────────────────────────────────
-  async registrarProrroga(id: string, data: { nuevaFecha: string; nuevaTasa?: number; nota?: string }) {
+  async registrarProrroga(id: string, data: RegistrarProrrogaDto) {
     const op = await this.operRepo.findOne({ where: { id } });
     if (!op) throw new NotFoundException('Operación no encontrada');
 
@@ -154,7 +234,7 @@ export class OperacionesService {
       fechaVencimiento: data.nuevaFecha,
       tasaMensual:      data.nuevaTasa ?? op.tasaMensual,
       prorrogas:        (op.prorrogas ?? 0) + 1,
-      estado:           'PRORROGADO',
+      estado:           ESTADO_OP.PRORROGADO,
       bitacora,
     });
 
@@ -162,19 +242,19 @@ export class OperacionesService {
   }
 
   // ── Cheques ───────────────────────────────────────────────────────────────
-  async updateCheque(id: string, data: Partial<ChequeDetalle>) {
+  async updateCheque(id: string, data: UpdateChequeDto) {
     await this.chequeRepo.update(id, data);
     return this.chequeRepo.findOne({ where: { id } });
   }
 
   // ── Cuotas ────────────────────────────────────────────────────────────────
-  async registrarPagoCuota(cuotaId: string, data: { montoPagado: number; fechaPago: string }) {
+  async registrarPagoCuota(cuotaId: string, data: RegistrarPagoCuotaDto) {
     const cuota = await this.cuotaRepo.findOne({ where: { id: cuotaId } });
     if (!cuota) throw new NotFoundException('Cuota no encontrada');
 
     const pagado = Number(cuota.pagado) + Number(data.montoPagado);
     const saldo  = Math.max(0, Number(cuota.total) + Number(cuota.cargoMora ?? 0) - pagado);
-    const estado = saldo <= 0 ? 'PAGADO' : 'PENDIENTE';
+    const estado = saldo <= 0 ? ESTADO_CUOTA.PAGADO : ESTADO_CUOTA.PENDIENTE;
 
     await this.cuotaRepo.update(cuotaId, { pagado, saldo, estado, fechaPago: data.fechaPago });
     return this.cuotaRepo.findOne({ where: { id: cuotaId } });
@@ -201,10 +281,44 @@ export class OperacionesService {
   // ── Estados configurables ─────────────────────────────────────────────────
   findEstados() { return this.estadoRepo.find({ order: { orden: 'ASC' } }); }
 
-  createEstado(d: Partial<EstadoOperacion>) { return this.estadoRepo.save(this.estadoRepo.create(d)); }
+  createEstado(d: CreateEstadoOperacionDto) { return this.estadoRepo.save(this.estadoRepo.create(d)); }
 
-  async updateEstado(id: string, d: Partial<EstadoOperacion>) {
+  async updateEstado(id: string, d: UpdateEstadoOperacionDto) {
     await this.estadoRepo.update(id, d);
     return this.estadoRepo.findOne({ where: { id } });
+  }
+
+  // ── Matriz de transiciones ────────────────────────────────────────────────
+
+  async getTransicionesMatriz() {
+    const estados     = await this.estadoRepo.find({ order: { orden: 'ASC' } });
+    const transiciones = await this.transRepo.find();
+    return { estados, transiciones };
+  }
+
+  async saveMatriz(batch: { desdeId: string; hastaId: string }[]) {
+    // Reemplazar todo el conjunto de transiciones
+    await this.transRepo.delete({});
+    if (batch.length) {
+      const items = batch.map(t => this.transRepo.create(t));
+      await this.transRepo.save(items);
+    }
+    return this.getTransicionesMatriz();
+  }
+
+  async getSiguientesEstados(codigoActual: string): Promise<EstadoOperacion[]> {
+    const desde = await this.estadoRepo.findOne({ where: { codigo: codigoActual } });
+    if (!desde) return this.estadoRepo.find({ order: { orden: 'ASC' } });
+
+    const transiciones = await this.transRepo.find({ where: { desdeId: desde.id } });
+
+    // Si no hay transiciones definidas para este estado → retornar todos (modo libre)
+    if (!transiciones.length) return this.estadoRepo.find({ order: { orden: 'ASC' } });
+
+    const hastaIds = transiciones.map(t => t.hastaId);
+    return this.estadoRepo.find({
+      where: { id: In(hastaIds) },
+      order: { orden: 'ASC' },
+    });
   }
 }
