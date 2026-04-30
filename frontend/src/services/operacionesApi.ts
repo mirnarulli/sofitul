@@ -48,8 +48,10 @@ export const cobranzasApi = {
 export const tesoreriaApi = {
   getPendientesDesembolso: ()                    => api.get('/tesoreria/pendientes').then(r => r.data),
   getAlertasPagare:        ()                    => api.get('/tesoreria/alertas-pagare').then(r => r.data),
+  getCobranzas:            ()                    => api.get('/tesoreria/cobranzas').then(r => r.data),
   registrarDesembolso:     (id: string, b: any)  => api.post(`/tesoreria/${id}/desembolso`, b).then(r => r.data),
   registrarPagare:         (id: string, b: any)  => api.put(`/tesoreria/${id}/pagare`, b).then(r => r.data),
+  registrarCobro:          (chequeId: string, b: any) => api.post(`/tesoreria/cheques/${chequeId}/cobrar`, b).then(r => r.data),
 };
 
 export const inventarioApi = {

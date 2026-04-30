@@ -236,7 +236,7 @@ export default function OperacionDetalle() {
             <div><p className="text-gray-400 text-xs">Monto total</p><p className="font-bold text-gray-800">{formatGs(op.montoTotal)}</p></div>
             <div><p className="text-gray-400 text-xs">Neto a desembolsar</p><p className="font-bold text-green-700">{formatGs(op.netoDesembolsar)}</p></div>
             <div><p className="text-gray-400 text-xs">Interés total</p><p className="font-medium text-red-600">{formatGs(op.interesTotal)}</p></div>
-            <div><p className="text-gray-400 text-xs">Ganancia neta</p><p className="font-medium text-blue-700">{formatGs(op.gananciaNeta)}</p></div>
+            <div><p className="text-gray-400 text-xs">Interés Generado neto</p><p className="font-medium text-blue-700">{formatGs(op.gananciaNeta)}</p></div>
             <div><p className="text-gray-400 text-xs">Vencimiento</p><p className="font-medium">{formatDate(op.fechaVencimiento)}</p></div>
             <div><p className="text-gray-400 text-xs">Canal</p><p className="font-medium">{op.canal ?? '—'}</p></div>
           </div>

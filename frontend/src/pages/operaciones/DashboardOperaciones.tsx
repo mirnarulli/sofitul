@@ -33,7 +33,7 @@ const ESTADO_DOT: Record<string, string> = {
   RENOVADO: 'bg-violet-400', COBRADO: 'bg-emerald-400',
 };
 
-// ── Mini bar chart (CSS-only) ────────────────────────────────────────────────
+// ── Mini bar chart horizontal (CSS-only) ─────────────────────────────────────
 function BarH({ value, max, color = 'bg-blue-500', height = 'h-5' }: { value: number; max: number; color?: string; height?: string }) {
   const pct = max > 0 ? Math.max(2, (value / max) * 100) : 0;
   return (
@@ -43,73 +43,89 @@ function BarH({ value, max, color = 'bg-blue-500', height = 'h-5' }: { value: nu
   );
 }
 
-// ── Proyección semanal ───────────────────────────────────────────────────────
-function ProyeccionSemanal({ semanas }: { semanas: any[] }) {
-  const maxVal = Math.max(...semanas.map((s: any) => Number(s.valor_cheques ?? 0)), 1);
+// ── Gráfico de columnas — Capital e Interés Generado por semana ──────────────
+function GraficoSemanal({ semanas }: { semanas: any[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+
+  if (semanas.length === 0) {
+    return <p className="text-sm text-gray-400 text-center py-10">Sin vencimientos programados.</p>;
+  }
+
+  // Mostrar máx 12 semanas para que quepan bien
+  const data = semanas.slice(0, 12);
+  const maxTotal = Math.max(...data.map((s: any) => Number(s.capital ?? 0) + Number(s.interes ?? 0)), 1);
+  const CHART_H = 160; // px de altura del área de barras
 
   return (
-    <div className="space-y-3">
-      {semanas.length === 0 && (
-        <p className="text-sm text-gray-400 text-center py-6">Sin vencimientos programados.</p>
-      )}
-      {semanas.map((s: any, i: number) => {
-        const capital   = Number(s.capital ?? 0);
-        const interes   = Number(s.interes ?? 0);
-        const total     = Number(s.valor_cheques ?? 0);
-        const pctCap    = maxVal > 0 ? (capital  / maxVal) * 100 : 0;
-        const pctInt    = maxVal > 0 ? (interes  / maxVal) * 100 : 0;
-        const isUrgent  = i === 0;
+    <div>
+      {/* Área del gráfico con scroll horizontal en pantallas chicas */}
+      <div className="overflow-x-auto pb-2">
+        <div className="flex items-end gap-2 min-w-0" style={{ minWidth: `${data.length * 72}px` }}>
+          {data.map((s: any, i: number) => {
+            const capital = Number(s.capital ?? 0);
+            const interes = Number(s.interes ?? 0);
+            const total   = capital + interes;
+            const hCap    = maxTotal > 0 ? Math.max(4, (capital / maxTotal) * CHART_H) : 4;
+            const hInt    = maxTotal > 0 ? Math.max(2, (interes / maxTotal) * CHART_H) : 2;
+            const isUrgent = i === 0;
+            const isHover  = hover === i;
 
-        return (
-          <div key={s.semana_inicio}
-            className={`rounded-xl border p-4 ${isUrgent ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-white'}`}>
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-2">
-                {isUrgent
-                  ? <AlertTriangle size={14} className="text-amber-500 shrink-0" />
-                  : <Calendar size={14} className="text-gray-400 shrink-0" />
-                }
-                <span className={`text-sm font-semibold ${isUrgent ? 'text-amber-700' : 'text-gray-700'}`}>
-                  {s.desde} — {s.hasta}
-                </span>
-                <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">
-                  {s.cantidad} {s.cantidad === 1 ? 'cheque' : 'cheques'}
+            return (
+              <div
+                key={s.semana_inicio ?? i}
+                className="flex-1 flex flex-col items-center gap-1 cursor-default group"
+                onMouseEnter={() => setHover(i)}
+                onMouseLeave={() => setHover(null)}
+              >
+                {/* Tooltip */}
+                {isHover && (
+                  <div className="absolute z-10 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl pointer-events-none -translate-y-2 whitespace-nowrap" style={{ marginTop: '-80px' }}>
+                    <p className="font-semibold mb-1">{s.desde} — {s.hasta}</p>
+                    <p className="text-blue-300">Capital: {fGs(capital)}</p>
+                    <p className="text-emerald-300">Interés: {fGs(interes)}</p>
+                    <p className="text-white font-medium border-t border-gray-600 mt-1 pt-1">Total: {fGs(total)}</p>
+                    <p className="text-gray-400">{s.cantidad} cheque{s.cantidad !== 1 ? 's' : ''}</p>
+                  </div>
+                )}
+
+                {/* Columnas apiladas */}
+                <div className="relative flex flex-col justify-end w-full" style={{ height: `${CHART_H}px` }}>
+                  <div className="flex flex-col w-full overflow-hidden rounded-t-md">
+                    {/* Interés (encima) */}
+                    <div
+                      className={`w-full transition-all duration-700 ${isHover ? 'bg-emerald-500' : 'bg-emerald-400'} ${isUrgent ? 'bg-amber-400' : ''}`}
+                      style={{ height: `${hInt}px` }}
+                    />
+                    {/* Capital (abajo) */}
+                    <div
+                      className={`w-full transition-all duration-700 ${isHover ? 'bg-blue-600' : 'bg-blue-500'} ${isUrgent ? 'bg-amber-600' : ''}`}
+                      style={{ height: `${hCap}px` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Etiqueta semana */}
+                <span className={`text-[10px] text-center leading-tight ${isUrgent ? 'text-amber-700 font-semibold' : 'text-gray-400'}`}>
+                  {s.desde?.replace(/\s\d{4}/, '') ?? `S${i + 1}`}
                 </span>
               </div>
-              <div className="text-right">
-                <p className={`text-sm font-bold ${isUrgent ? 'text-amber-800' : 'text-gray-800'}`}>{fGs(total)}</p>
-                <p className="text-xs text-emerald-600 font-medium">+{fGs(interes)} ganancia</p>
-              </div>
-            </div>
+            );
+          })}
+        </div>
+      </div>
 
-            {/* Barra apilada visual */}
-            <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
-              {/* Capital (azul) */}
-              <div
-                className="absolute left-0 top-0 h-full bg-blue-500 rounded-full transition-all duration-700"
-                style={{ width: `${pctCap}%` }}
-              />
-              {/* Interés encima (verde) desde donde termina capital */}
-              <div
-                className="absolute top-0 h-full bg-emerald-400 rounded-full transition-all duration-700"
-                style={{ left: `${pctCap}%`, width: `${Math.max(pctInt, 0.5)}%` }}
-              />
-            </div>
-
-            {/* Leyenda */}
-            <div className="flex gap-4 mt-1.5">
-              <span className="flex items-center gap-1 text-xs text-gray-500">
-                <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                Capital: {fGs(capital)}
-              </span>
-              <span className="flex items-center gap-1 text-xs text-emerald-600">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-                Ganancia: {fGs(interes)}
-              </span>
-            </div>
-          </div>
-        );
-      })}
+      {/* Leyenda */}
+      <div className="flex items-center gap-6 mt-4 pt-3 border-t border-gray-100">
+        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+          <span className="w-3 h-3 rounded-sm bg-blue-500 inline-block" /> Capital desembolsado
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-emerald-600">
+          <span className="w-3 h-3 rounded-sm bg-emerald-400 inline-block" /> Interés Generado
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-amber-600 ml-auto">
+          <span className="w-3 h-3 rounded-sm bg-amber-500 inline-block" /> Semana actual
+        </span>
+      </div>
     </div>
   );
 }
@@ -190,10 +206,10 @@ export default function DashboardOperaciones() {
           <p className="text-xs text-gray-400 mt-1">Valor nominal cheques</p>
         </div>
 
-        {/* Ganancia esperada */}
+        {/* Interés Generado */}
         <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-sm p-5 text-white">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-emerald-100 uppercase tracking-wider">Ganancia esperada</span>
+            <span className="text-xs font-semibold text-emerald-100 uppercase tracking-wider">Interés Generado</span>
             <div className="p-1.5 bg-white/20 rounded-lg"><TrendingUp size={14} className="text-white" /></div>
           </div>
           <p className="text-2xl font-bold">{fGs(kpis.ganancia_esperada)}</p>
@@ -234,19 +250,12 @@ export default function DashboardOperaciones() {
         <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-base font-bold text-gray-900">Proyección de Cobranza</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Cheques a cobrar por semana — próximas 16 semanas</p>
+              <h2 className="text-base font-bold text-gray-900">Capital e Interés Generado por Semana</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Proyección de cobranza — próximas 12 semanas</p>
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-500">
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-sm bg-blue-500 inline-block" /> Capital
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-sm bg-emerald-400 inline-block" /> Ganancia
-              </span>
-            </div>
+            <div className="hidden" />
           </div>
-          <ProyeccionSemanal semanas={proyeccionSemanal ?? []} />
+          <GraficoSemanal semanas={proyeccionSemanal ?? []} />
         </div>
 
         {/* Estados — 1/3 */}
@@ -358,7 +367,7 @@ export default function DashboardOperaciones() {
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">{c.canal}</p>
                     <p className="text-lg font-bold text-gray-900">{fGs(c.capital)}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{pct}% del total · {c.ops} ops</p>
-                    <p className="text-xs text-emerald-600 mt-0.5">+{fGs(c.ganancia)} ganancia</p>
+                    <p className="text-xs text-emerald-600 mt-0.5">+{fGs(c.ganancia)} interés</p>
                   </div>
                 );
               })}
@@ -383,7 +392,7 @@ export default function DashboardOperaciones() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  {['Operación', 'Cliente', 'Banco', 'N° Cheque', 'Vencimiento', 'Días', 'Valor', 'Capital', 'Ganancia', 'Canal'].map(h => (
+                  {['Operación', 'Cliente', 'Banco', 'N° Cheque', 'Vencimiento', 'Días', 'Valor', 'Capital', 'Interés Generado', 'Canal'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
