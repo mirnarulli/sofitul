@@ -25,13 +25,14 @@ function normalizarSexo(raw?: string): string {
   return '';
 }
 
-/** Mapea estado civil de VALIDATA → valor del select */
+/** Mapea estado civil de VALIDATA → valor del select.
+ *  VALIDATA usa códigos abreviados ("SO","CA","DI","VI","UN") y/o palabras completas. */
 const EC_MAP: Record<string, string> = {
-  'SOLTERO': 'Soltero/a', 'SOLTERA': 'Soltero/a',
-  'CASADO':  'Casado/a',  'CASADA':  'Casado/a',
-  'DIVORCIADO': 'Divorciado/a', 'DIVORCIADA': 'Divorciado/a',
-  'VIUDO':   'Viudo/a',   'VIUDA':   'Viudo/a',
-  'UNION DE HECHO': 'Unión de hecho', 'CONCUBINATO': 'Unión de hecho',
+  'SO': 'Soltero/a', 'SOLTERO': 'Soltero/a', 'SOLTERA': 'Soltero/a',
+  'CA': 'Casado/a',  'CASADO':  'Casado/a',  'CASADA':  'Casado/a',
+  'DI': 'Divorciado/a', 'DIVORCIADO': 'Divorciado/a', 'DIVORCIADA': 'Divorciado/a',
+  'VI': 'Viudo/a',      'VIUDO':       'Viudo/a',     'VIUDA':       'Viudo/a',
+  'UN': 'Unión de hecho', 'UNION DE HECHO': 'Unión de hecho', 'CONCUBINATO': 'Unión de hecho',
 };
 function normalizarEC(raw?: string): string {
   if (!raw) return '';
@@ -85,16 +86,17 @@ export default function NuevaPersonaFisica() {
 
       // Nombres: dp.nombre = "MIRNA ELIZABETH" (primer + segundo nombre juntos)
       const nombreCompleto = (dp.nombre ?? f.nombre ?? '').trim();
-      const primerNombre   = f.primerNombre  ?? nombreCompleto.split(/\s+/)[0]                     ?? '';
-      const segundoNombre  = f.segundoNombre ?? nombreCompleto.split(/\s+/).slice(1).join(' ')     ?? '';
+      const primerNombre   = nombreCompleto.split(/\s+/)[0]                  ?? '';
+      const segundoNombre  = nombreCompleto.split(/\s+/).slice(1).join(' ')  ?? '';
 
-      // Apellidos: dp.set[0].contribuyente = "RULLI MARTINEZ, MIRNA ELIZABETH" → antes de la coma son apellidos
-      const contribuyente: string = dp.set?.[0]?.contribuyente ?? '';
-      const apellidoCompleto = contribuyente.includes(',')
-        ? contribuyente.split(',')[0].trim()
-        : (f.apellido ?? '').trim();
-      const primerApellido  = f.primerApellido  ?? apellidoCompleto.split(/\s+/)[0]                ?? '';
-      const segundoApellido = f.segundoApellido ?? apellidoCompleto.split(/\s+/).slice(1).join(' ')?? '';
+      // Apellidos: dp.apellidos = "RULLI MARTINEZ"
+      const apellidoCompleto = (dp.apellidos ?? f.apellido ?? '').trim();
+      const primerApellido   = apellidoCompleto.split(/\s+/)[0]                  ?? '';
+      const segundoApellido  = apellidoCompleto.split(/\s+/).slice(1).join(' ')  ?? '';
+
+      // Nacionalidad: VALIDATA devuelve "PARAGUAYA" → mapear a código país (default 'PY')
+      const nacRaw: string = (dp.nacionalidad ?? dp.nacionalidadOrigen ?? '').toUpperCase();
+      const paisNacionalidad = nacRaw.includes('PARAGUAY') ? 'PY' : '';
 
       // Solo precompletamos sección IDENTIFICACIÓN — el resto carga manual
       setForm(prev => ({
@@ -104,8 +106,9 @@ export default function NuevaPersonaFisica() {
         primerApellido:  primerApellido || prev.primerApellido,
         segundoApellido: segundoApellido|| prev.segundoApellido,
         fechaNacimiento: normalizarFecha(dp.fechaNac ?? f.fechaNacimiento ?? f.fechaNac) || prev.fechaNacimiento,
-        sexo:            normalizarSexo(dp.sexo ?? f.sexo)  || prev.sexo,
-        estadoCivil:     normalizarEC(f.estadoCivil) || prev.estadoCivil,
+        sexo:            normalizarSexo(dp.sexo ?? f.sexo) || prev.sexo,
+        estadoCivil:     normalizarEC(dp.estadoCiv ?? f.estadoCivil) || prev.estadoCivil,
+        paisNacionalidad: paisNacionalidad || prev.paisNacionalidad,
       }));
 
       setVOk(true);
