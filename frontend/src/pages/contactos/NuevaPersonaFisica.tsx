@@ -80,35 +80,32 @@ export default function NuevaPersonaFisica() {
       const result = await validataApi.consultar(cedula, 'nueva-pf');
       const f  = result.ficha  ?? {};
       const n  = result.nomina ?? {};
+      // VALIDATA anida los datos de persona en ficha.datosPersonaFichaCompleta
+      const dp = f.datosPersonaFichaCompleta ?? {};
 
-      // Nombre — puede venir como campos separados o como "JUAN CARLOS"
-      const primerNombre   = f.primerNombre   ?? f.nombre?.split(' ')[0]                     ?? '';
-      const segundoNombre  = f.segundoNombre  ?? f.nombre?.split(' ').slice(1, 2).join(' ')  ?? '';
-      const primerApellido = f.primerApellido ?? f.apellido?.split(' ')[0]                   ?? '';
-      const segundoApellido= f.segundoApellido?? f.apellido?.split(' ').slice(1).join(' ')   ?? '';
+      // Nombres: dp.nombre = "MIRNA ELIZABETH" (primer + segundo nombre juntos)
+      const nombreCompleto = (dp.nombre ?? f.nombre ?? '').trim();
+      const primerNombre   = f.primerNombre  ?? nombreCompleto.split(/\s+/)[0]                     ?? '';
+      const segundoNombre  = f.segundoNombre ?? nombreCompleto.split(/\s+/).slice(1).join(' ')     ?? '';
 
-      // PEP desde ficha o desde alertas
-      const alertas = result.familiares ?? []; // reutilizamos solo la ficha para alertas
-      const esPep = !!(f.esPep || f.pep || n.esPep);
+      // Apellidos: dp.set[0].contribuyente = "RULLI MARTINEZ, MIRNA ELIZABETH" → antes de la coma son apellidos
+      const contribuyente: string = dp.set?.[0]?.contribuyente ?? '';
+      const apellidoCompleto = contribuyente.includes(',')
+        ? contribuyente.split(',')[0].trim()
+        : (f.apellido ?? '').trim();
+      const primerApellido  = f.primerApellido  ?? apellidoCompleto.split(/\s+/)[0]                ?? '';
+      const segundoApellido = f.segundoApellido ?? apellidoCompleto.split(/\s+/).slice(1).join(' ')?? '';
 
+      // Solo precompletamos sección IDENTIFICACIÓN — el resto carga manual
       setForm(prev => ({
         ...prev,
         primerNombre:    primerNombre   || prev.primerNombre,
         segundoNombre:   segundoNombre  || prev.segundoNombre,
         primerApellido:  primerApellido || prev.primerApellido,
         segundoApellido: segundoApellido|| prev.segundoApellido,
-        fechaNacimiento: normalizarFecha(f.fechaNacimiento ?? f.fechaNac) || prev.fechaNacimiento,
-        sexo:            normalizarSexo(f.sexo)  || prev.sexo,
+        fechaNacimiento: normalizarFecha(dp.fechaNac ?? f.fechaNacimiento ?? f.fechaNac) || prev.fechaNacimiento,
+        sexo:            normalizarSexo(dp.sexo ?? f.sexo)  || prev.sexo,
         estadoCivil:     normalizarEC(f.estadoCivil) || prev.estadoCivil,
-        domicilio:       f.domicilio ?? f.direccion ?? prev.domicilio,
-        barrio:          f.barrio    ?? prev.barrio,
-        ciudad:          f.ciudad    ?? prev.ciudad,
-        departamento:    f.departamento ?? prev.departamento,
-        // Laboral (desde nómina)
-        empleador:       n.empleador ?? n.empresa ?? n.razonSocial ?? prev.empleador,
-        cargo:           n.cargo     ?? n.ocupacion ?? prev.cargo,
-        // Compliance
-        esPep:           esPep || prev.esPep,
       }));
 
       setVOk(true);
