@@ -183,13 +183,13 @@ export default function NuevaPersonaFisica() {
                 type="button"
                 onClick={() => consultarValidata(form.numeroDoc)}
                 disabled={vLoading || !form.numeroDoc}
-                title="Consultar datos en VALIDATA"
+                title="Buscar datos de la persona"
                 className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               >
                 {vLoading
                   ? <Loader2 size={14} className="animate-spin" />
                   : <Search size={14} />}
-                {vLoading ? 'Consultando...' : 'VALIDATA'}
+                {vLoading ? 'Consultando...' : 'Buscar persona'}
               </button>
             </div>
           </Field>
