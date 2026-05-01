@@ -240,7 +240,7 @@ export default function NuevaPersonaFisica() {
           </Field>
           <Field label="Nacionalidad">
             <select value={form.paisNacionalidad} onChange={e => set('paisNacionalidad', e.target.value)} className={inputCls}>
-              {paises.map((p: any) => <option key={p.codigo} value={p.codigo}>{p.nombre}</option>)}
+              {paises.map((p: any) => <option key={p.id} value={p.codigoIso}>{p.nombre}</option>)}
             </select>
           </Field>
         </div>
@@ -266,7 +266,7 @@ export default function NuevaPersonaFisica() {
           </Field>
           <Field label="País de residencia">
             <select value={form.paisResidencia} onChange={e => set('paisResidencia', e.target.value)} className={inputCls}>
-              {paises.map((p: any) => <option key={p.codigo} value={p.codigo}>{p.nombre}</option>)}
+              {paises.map((p: any) => <option key={p.id} value={p.codigoIso}>{p.nombre}</option>)}
             </select>
           </Field>
         </div>
