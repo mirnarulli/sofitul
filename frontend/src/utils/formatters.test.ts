@@ -122,3 +122,63 @@ describe('diasHasta', () => {
     expect(diasHasta('2000-01-01')).toBeLessThan(0);
   });
 });
+
+// ── formatGs — casos adicionales ──────────────────────────────────────────────
+
+describe('formatGs — casos adicionales', () => {
+  it('formatea número negativo', () => {
+    const result = formatGs(-500000);
+    expect(result).toMatch(/^Gs\./);
+    expect(result).toContain('-');
+  });
+
+  it('parsea número decimal y trunca (sin coma decimal)', () => {
+    // es-PY usa coma como separador decimal; el resultado no debe tener ","
+    const result = formatGs(1500.75);
+    expect(result).toMatch(/^Gs\./);
+    expect(result).not.toContain(',');   // no debe quedar decimal en el resultado
+  });
+
+  it('formatea NaN como —', () => {
+    expect(formatGs(NaN)).toBe('—');
+  });
+
+  it('parsea string con decimales', () => {
+    const result = formatGs('250000.5');
+    expect(result).toMatch(/^Gs\./);
+  });
+});
+
+// ── calcularInteres — casos adicionales ───────────────────────────────────────
+
+describe('calcularInteres — casos adicionales', () => {
+  it('redondea al entero más cercano', () => {
+    // 100.000 al 5% mensual por 10 días → 100000 * 0.05 * (10/30) = 1666.67 → 1667
+    expect(calcularInteres(100_000, 5, 10)).toBe(1667);
+  });
+
+  it('maneja días mayores a 30', () => {
+    // 1.000.000 al 5% por 60 días = 100.000
+    expect(calcularInteres(1_000_000, 5, 60)).toBe(100_000);
+  });
+
+  it('retorna 0 con días 0', () => {
+    expect(calcularInteres(1_000_000, 5, 0)).toBe(0);
+  });
+});
+
+// ── calcularDias — casos adicionales ──────────────────────────────────────────
+
+describe('calcularDias — casos adicionales', () => {
+  it('calcula días cruzando año', () => {
+    expect(calcularDias('2023-12-25', '2024-01-04')).toBe(10);
+  });
+
+  it('calcula mes de febrero año bisiesto', () => {
+    expect(calcularDias('2024-02-01', '2024-03-01')).toBe(29);
+  });
+
+  it('calcula mes de febrero año normal', () => {
+    expect(calcularDias('2023-02-01', '2023-03-01')).toBe(28);
+  });
+});
