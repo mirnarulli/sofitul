@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Check, Banknote, Loader2 } from 'lucide-react';
+import { AlertTriangle, Check, Banknote, Loader2, Download } from 'lucide-react';
 import Modal from '../../components/Modal';
 import { tesoreriaApi } from '../../services/operacionesApi';
 import { panelGlobalApi } from '../../services/contactosApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
+import { Toast } from '../../components/ui/Toast';
 
 // ── FilaDesembolso ─────────────────────────────────────────────────────────────
 function FilaDesembolso({ op, cajas, onDesembolsado }: { op: any; cajas: any[]; onDesembolsado: (id: string) => void }) {
@@ -304,7 +305,24 @@ export default function Tesoreria() {
   const [alertasPagare, setAlertasPagare] = useState<any[]>([]);
   const [cajas,         setCajas]         = useState<any[]>([]);
   const [loading,       setLoading]       = useState(true);
+  const [exportando,    setExportando]    = useState(false);
+  const [toast,         setToast]         = useState('');
   const [tab, setTab] = useState<'pendientes' | 'cobranzas' | 'pagare' | 'cajas'>('pendientes');
+
+  const handleExport = async () => {
+    setExportando(true);
+    try {
+      const blob = await tesoreriaApi.exportExcel();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tesoreria-${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setToast('Archivo descargado correctamente');
+    } catch { /* silencioso */ }
+    finally { setExportando(false); }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -319,9 +337,15 @@ export default function Tesoreria() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Tesorería</h1>
-        <p className="text-sm text-gray-500">Desembolsos, cobranzas y control de cajas</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Tesorería</h1>
+          <p className="text-sm text-gray-500">Desembolsos, cobranzas y control de cajas</p>
+        </div>
+        <button onClick={handleExport} disabled={exportando}
+          className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-50">
+          <Download size={15} /> {exportando ? 'Exportando...' : 'Exportar Excel'}
+        </button>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
@@ -441,6 +465,8 @@ export default function Tesoreria() {
           )}
         </>
       )}
+
+      {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>
   );
 }

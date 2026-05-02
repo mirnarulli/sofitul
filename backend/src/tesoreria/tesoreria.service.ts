@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { utils as xlsxUtils, write as xlsxWrite } from 'xlsx';
 import { OperacionesService } from '../operaciones/operaciones.service';
 import { ESTADO_OP } from '../common/constants/estado-operacion.constants';
 
@@ -137,5 +138,59 @@ export class TesoreriaService {
     }
 
     return { mensaje: 'Cheque registrado como cobrado.', operacionCerrada: false };
+  }
+
+  // ── Exportar a Excel ──────────────────────────────────────────────────────
+  async exportToExcel(): Promise<Buffer> {
+    const [pendientes, cheques] = await Promise.all([
+      this.ds.query(`
+        SELECT o.nro_operacion, o.contacto_nombre, o.tipo_operacion,
+               o.neto_desembolsar, o.monto_total, o.fecha_operacion, o.estado,
+               c.nombre AS caja_nombre
+        FROM operaciones o
+        LEFT JOIN cajas c ON c.id = o.caja_id
+        WHERE o.estado = '${ESTADO_OP.EN_TESORERIA}'
+        ORDER BY o.created_at ASC
+      `),
+      this.ds.query(`
+        SELECT cd.nro_cheque, cd.banco, cd.fecha_vencimiento, cd.estado AS estado_cheque,
+               cd.monto, cd.capital_invertido, cd.interes,
+               o.nro_operacion, o.contacto_nombre,
+               (cd.fecha_vencimiento::date - CURRENT_DATE) AS dias_restantes
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id::text = cd.operacion_id
+        WHERE cd.estado = 'VIGENTE'
+        ORDER BY cd.fecha_vencimiento ASC
+      `),
+    ]);
+
+    const wsPendientes = xlsxUtils.json_to_sheet(pendientes.map((r: Record<string, unknown>) => ({
+      'N° Operación':   r.nro_operacion,
+      'Cliente':        r.contacto_nombre,
+      'Tipo':           r.tipo_operacion,
+      'Neto a desemb.': r.neto_desembolsar,
+      'Monto total':    r.monto_total,
+      'Fecha op.':      String(r.fecha_operacion ?? '').slice(0, 10),
+      'Estado':         r.estado,
+      'Caja':           r.caja_nombre,
+    })));
+
+    const wsCheques = xlsxUtils.json_to_sheet(cheques.map((r: Record<string, unknown>) => ({
+      'N° Cheque':    r.nro_cheque,
+      'Banco':        r.banco,
+      'Vencimiento':  String(r.fecha_vencimiento ?? '').slice(0, 10),
+      'Días restant.':r.dias_restantes,
+      'Estado':       r.estado_cheque,
+      'Monto':        r.monto,
+      'Capital':      r.capital_invertido,
+      'Interés':      r.interes,
+      'N° Operación': r.nro_operacion,
+      'Cliente':      r.contacto_nombre,
+    })));
+
+    const wb = xlsxUtils.book_new();
+    xlsxUtils.book_append_sheet(wb, wsPendientes, 'Pendientes Desembolso');
+    xlsxUtils.book_append_sheet(wb, wsCheques,    'Cheques Vigentes');
+    return xlsxWrite(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 }

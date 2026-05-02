@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, UseGuards, Req, StreamableFile } from '@nestjs/common';
 import { TesoreriaService } from './tesoreria.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard }   from '../auth/roles.guard';
@@ -12,6 +12,16 @@ import { RegistrarCobroDto }      from './dto/registrar-cobro.dto';
 @Roles('SUPERADMIN', 'ADMIN')
 export class TesoreriaController {
   constructor(private svc: TesoreriaService) {}
+
+  @Get('export')
+  async exportExcel() {
+    const buf   = await this.svc.exportToExcel();
+    const fecha = new Date().toISOString().split('T')[0];
+    return new StreamableFile(buf, {
+      type:        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="tesoreria-${fecha}.xlsx"`,
+    });
+  }
 
   @Get('pendientes')
   getPendientes() { return this.svc.getPendientesDesembolso(); }

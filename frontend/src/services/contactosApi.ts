@@ -168,7 +168,10 @@ export const documentosContactoApi = {
 };
 
 export const bitacoraApi = {
-  getAll: (params?: any) => api.get('/bitacora', { params }).then(r => r.data),
+  getAll: (params?: { modulo?: string; usuarioId?: string; accion?: string; desde?: string; hasta?: string; page?: number; limit?: number }) =>
+    api.get('/bitacora', { params }).then(r => r.data),
+  exportExcel: (params?: { modulo?: string; usuarioId?: string; desde?: string; hasta?: string }) =>
+    api.get('/bitacora/export', { params, responseType: 'blob' }).then(r => r.data as Blob),
 };
 
 export const validataApi = {

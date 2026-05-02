@@ -52,12 +52,16 @@ export const cobranzasApi = {
 };
 
 export const tesoreriaApi = {
+  exportExcel:             ()                    => api.get('/tesoreria/export', { responseType: 'blob' }).then(r => r.data as Blob),
   getPendientesDesembolso: ()                    => api.get('/tesoreria/pendientes').then(r => r.data),
   getAlertasPagare:        ()                    => api.get('/tesoreria/alertas-pagare').then(r => r.data),
   getCobranzas:            ()                    => api.get('/tesoreria/cobranzas').then(r => r.data),
-  registrarDesembolso:     (id: string, b: any)  => api.post(`/tesoreria/${id}/desembolso`, b).then(r => r.data),
-  registrarPagare:         (id: string, b: any)  => api.put(`/tesoreria/${id}/pagare`, b).then(r => r.data),
-  registrarCobro:          (chequeId: string, b: any) => api.post(`/tesoreria/cheques/${chequeId}/cobrar`, b).then(r => r.data),
+  registrarDesembolso:     (id: string, b: { cajaId: string; fechaDesembolso?: string; bancoAcreditacion?: string; nroCuentaAcreditacion?: string; titularCuentaAcreditacion?: string; aliasAcreditacion?: string; nota?: string }) =>
+    api.post(`/tesoreria/${id}/desembolso`, b).then(r => r.data),
+  registrarPagare:         (id: string, b: { fecha: string }) =>
+    api.put(`/tesoreria/${id}/pagare`, b).then(r => r.data),
+  registrarCobro:          (chequeId: string, b: { fechaCobro: string; nroReferencia?: string; notaCobro?: string }) =>
+    api.post(`/tesoreria/cheques/${chequeId}/cobrar`, b).then(r => r.data),
 };
 
 export const inventarioApi = {
