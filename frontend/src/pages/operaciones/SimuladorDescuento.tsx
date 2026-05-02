@@ -671,6 +671,9 @@ export default function SimuladorDescuento() {
                         onChange={e => {
                           const v = e.target.value;
                           setBancoBusqs(prev => prev.map((x, idx) => idx === i ? v : x));
+                          // Belt-and-suspenders: activar fila también en onChange
+                          // por si onFocus no disparó antes del primer keystroke
+                          setActiveBancoRow(i);
                         }}
                         onFocus={() => setActiveBancoRow(i)}
                         onBlur={() => {
@@ -681,8 +684,10 @@ export default function SimuladorDescuento() {
                         autoComplete="off"
                         className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
                       />
-                      {/* Dropdown SOLO cuando esta fila tiene foco */}
-                      {activeBancoRow === i && (() => {
+                      {/* Dropdown: la guarda activeBancoRow está DENTRO del IIFE
+                          (no como && externo) para evitar edge cases de batching */}
+                      {(() => {
+                        if (activeBancoRow !== i) return null;
                         const q = (bancoBusqs[i] ?? '').toLowerCase().trim();
                         if (!q) return null;
                         const filtered = bancos.filter((b: any) =>
@@ -714,7 +719,10 @@ export default function SimuladorDescuento() {
                     <td className="px-1 py-1 relative">
                       <input
                         value={libradorBusqs[i] ?? ''}
-                        onChange={e => buscarLibrador(i, e.target.value)}
+                        onChange={e => {
+                          setActiveLibradorRow(i);   // activar también en onChange
+                          buscarLibrador(i, e.target.value);
+                        }}
                         onFocus={() => setActiveLibradorRow(i)}
                         onBlur={() => {
                           setActiveLibradorRow(-1);
@@ -724,7 +732,7 @@ export default function SimuladorDescuento() {
                         autoComplete="off"
                         className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
                       />
-                      {/* Dropdown SOLO cuando esta fila tiene foco y hay resultados */}
+                      {/* Dropdown: guarda activeLibradorRow dentro del bloque */}
                       {activeLibradorRow === i && (libradorOptsAll[i] || []).length > 0 && (
                         <div className="absolute z-30 left-0 min-w-[280px] bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-52 overflow-y-auto">
                           {(libradorOptsAll[i] || []).map((o: ContactoOption) => (
