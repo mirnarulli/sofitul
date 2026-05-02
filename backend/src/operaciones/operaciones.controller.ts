@@ -126,26 +126,38 @@ export class OperacionesController {
   findById(@Param('id') id: string) { return this.svc.findById(id); }
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   create(@Body() b: CreateOperacionDto) { return this.svc.create(b, b.cheques, b.cuotas); }
 
   @Put(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   update(@Param('id') id: string, @Body() b: UpdateOperacionDto) { return this.svc.update(id, b); }
 
   @Put(':id/estado')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   cambiarEstado(@Param('id') id: string, @Body() b: CambiarEstadoDto, @Req() req: { user?: { email?: string } }) {
     return this.svc.cambiarEstado(id, b.estado, b.nota, req.user?.email);
   }
 
   @Put(':id/prorroga')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   registrarProrroga(@Param('id') id: string, @Body() b: RegistrarProrrogaDto) {
     return this.svc.registrarProrroga(id, b);
   }
 
   // Sub-recursos (segmentos distintos — sin conflicto con :id)
   @Put('cheques/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN', 'TESORERIA')
   updateCheque(@Param('id') id: string, @Body() b: UpdateChequeDto) { return this.svc.updateCheque(id, b); }
 
   @Put('cuotas/:id/pagar')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN', 'COBRADOR')
   pagarCuota(@Param('id') id: string, @Body() b: RegistrarPagoCuotaDto) { return this.svc.registrarPagoCuota(id, b); }
 
   @Put('estados/:id')
@@ -155,11 +167,15 @@ export class OperacionesController {
 
   // ── Contrato TeDescuento ──────────────────────────────────────────────────
   @Put(':id/contrato')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   actualizarContrato(@Param('id') id: string, @Body() b: ActualizarContratoDto) {
     return this.svc.actualizarContrato(id, b);
   }
 
   @Post(':id/contrato/upload')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   @UseInterceptors(FileInterceptor('file', uploadsConfig('contratos', 'contrato')))
   async uploadContrato(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No se recibió archivo');
@@ -168,6 +184,8 @@ export class OperacionesController {
 
   // ── Fichas de análisis (Descuento de Cheque) ──────────────────────────────
   @Post(':id/ficha-informconf/upload')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   @UseInterceptors(FileInterceptor('file', uploadsConfig('fichas', 'informconf')))
   async uploadInformconf(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No se recibió archivo');
@@ -175,6 +193,8 @@ export class OperacionesController {
   }
 
   @Post(':id/ficha-infocheck/upload')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   @UseInterceptors(FileInterceptor('file', uploadsConfig('fichas', 'infocheck')))
   async uploadInfocheck(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No se recibió archivo');

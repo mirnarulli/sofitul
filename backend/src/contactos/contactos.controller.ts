@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request, StreamableFile } from '@nestjs/common';
 import { ContactosService } from './contactos.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard }   from '../auth/roles.guard';
+import { Roles }        from '../auth/roles.decorator';
 
 @Controller('contactos')
 @UseGuards(JwtAuthGuard)
@@ -34,12 +36,16 @@ export class ContactosController {
   findPFById(@Param('id') id: string) { return this.svc.findPFById(id); }
 
   @Post('pf')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   createPF(@Body() b: any, @Request() req: any) {
     const u = req.user;
     return this.svc.createPF(b, u?.id, `${u?.primerNombre ?? ''} ${u?.primerApellido ?? ''}`.trim());
   }
 
   @Put('pf/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   updatePF(@Param('id') id: string, @Body() b: any, @Request() req: any) {
     const u = req.user;
     return this.svc.updatePF(id, b, u?.id, `${u?.primerNombre ?? ''} ${u?.primerApellido ?? ''}`.trim());
@@ -56,12 +62,16 @@ export class ContactosController {
   findPJById(@Param('id') id: string) { return this.svc.findPJById(id); }
 
   @Post('pj')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   createPJ(@Body() b: any, @Request() req: any) {
     const u = req.user;
     return this.svc.createPJ(b, u?.id, `${u?.primerNombre ?? ''} ${u?.primerApellido ?? ''}`.trim());
   }
 
   @Put('pj/:id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   updatePJ(@Param('id') id: string, @Body() b: any, @Request() req: any) {
     const u = req.user;
     return this.svc.updatePJ(id, b, u?.id, `${u?.primerNombre ?? ''} ${u?.primerApellido ?? ''}`.trim());

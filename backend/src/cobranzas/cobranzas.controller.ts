@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, StreamableFile } from '@nestjs/common';
 import { CobranzasService } from './cobranzas.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard }   from '../auth/roles.guard';
+import { Roles }        from '../auth/roles.decorator';
 
 @Controller('cobranzas')
 @UseGuards(JwtAuthGuard)
@@ -35,11 +37,15 @@ export class CobranzasController {
   getVencimientos() { return this.svc.getVencimientosPorPeriodo(); }
 
   @Put(':id/cobrador')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN')
   asignarCobrador(@Param('id') id: string, @Body() b: { cobradorId: string }) {
     return this.svc.asignarCobrador(id, b.cobradorId);
   }
 
   @Post(':id/pago')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'ADMIN', 'COBRADOR')
   registrarPago(@Param('id') id: string, @Body() b: {
     monto: number;
     fechaPago: string;
