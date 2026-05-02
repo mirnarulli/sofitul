@@ -50,10 +50,13 @@ export default function ProductosFinancieros() {
     if (!form.codigo.trim() || !form.nombre.trim()) { alert('Código y nombre son requeridos.'); return; }
     setSaving(true);
     try {
-      const tasaNum = form.tasaMensualDefault !== '' ? parseFloat(form.tasaMensualDefault) : null;
+      // Excluir tasaMensualDefault del spread — no es columna de la entidad,
+      // va SOLO dentro de config.tasaMensualDefault (jsonb)
+      const { tasaMensualDefault, ...formBase } = form;
+      const tasaNum = tasaMensualDefault !== '' ? parseFloat(tasaMensualDefault) : null;
       const body = {
-        ...form,
-        config: form.tipoOperacion === 'DESCUENTO_CHEQUE'
+        ...formBase,
+        config: formBase.tipoOperacion === 'DESCUENTO_CHEQUE'
           ? { tasaMensualDefault: tasaNum }
           : {},
       };
