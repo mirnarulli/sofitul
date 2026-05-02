@@ -174,6 +174,20 @@ export const bitacoraApi = {
     api.get('/bitacora/export', { params, responseType: 'blob' }).then(r => r.data as Blob),
 };
 
+export const mediosPagoApi = {
+  getAll:     ()                     => api.get('/medios-pago').then(r => r.data),
+  getActivos: ()                     => api.get('/medios-pago/activos').then(r => r.data),
+  create:     (b: any)               => api.post('/medios-pago', b).then(r => r.data),
+  update:     (id: string, b: any)   => api.put(`/medios-pago/${id}`, b).then(r => r.data),
+};
+
+export const tiposCargoApi = {
+  getAll:     ()                     => api.get('/tipos-cargo').then(r => r.data),
+  getActivos: ()                     => api.get('/tipos-cargo/activos').then(r => r.data),
+  create:     (b: any)               => api.post('/tipos-cargo', b).then(r => r.data),
+  update:     (id: string, b: any)   => api.put(`/tipos-cargo/${id}`, b).then(r => r.data),
+};
+
 export const validataApi = {
   /** Consulta ficha completa + nómina FP + familiares (con flag esCliente).
    *  `origen` se guarda en bitácora para trazabilidad. */

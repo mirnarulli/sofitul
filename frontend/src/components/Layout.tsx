@@ -4,6 +4,7 @@ import {
   FileText, Users, Wallet, Settings, Coins, Globe, UserCog, LogOut,
   ChevronDown, ChevronRight, Menu, X, Landmark, BarChart2, TrendingUp,
   ClipboardList, Bell, LayoutDashboard, Plus, Tag, Briefcase, Calculator, Package, ShieldOff, CalendarDays, Link2, Building2,
+  CreditCard, Receipt, Stamp, UserCheck, Users2, CheckSquare,
 } from 'lucide-react';
 import { useLogos } from '../context/LogosContext';
 import { canView, type Modulo } from '../utils/permisos';
@@ -39,12 +40,21 @@ const MODULES: NavModule[] = [
     }],
   },
   {
+    id: 'rrhh', label: 'RRHH', icon: UserCheck, pathPrefix: '/rrhh',
+    sections: [{
+      items: [
+        { icon: Users2, label: 'Empleados', path: '/rrhh/empleados' },
+      ],
+    }],
+  },
+  {
     id: 'cobranzas', label: 'Cobranzas', icon: ClipboardList, pathPrefix: '/cobranzas',
     moduloPermiso: 'cobranzas',
     sections: [{
       items: [
         { icon: ClipboardList, label: 'Cartera', path: '/cobranzas' },
         { icon: BarChart2,     label: 'Dashboard Recupero', path: '/dashboards/recupero' },
+        { icon: CheckSquare,   label: 'Conciliaciones', path: '/conciliaciones' },
       ],
     }],
   },
@@ -83,6 +93,9 @@ const MODULES: NavModule[] = [
         { icon: ClipboardList,  label: 'Servicios Datos',       path: '/panel/informes-rigor' },
         { icon: FileText,       label: 'Tipos Doc. Adjunto',   path: '/panel/tipos-doc-adjunto' },
         { icon: Landmark,       label: 'Bancos',               path: '/panel/bancos' },
+        { icon: CreditCard,     label: 'Medios de Pago',       path: '/panel/medios-pago' },
+        { icon: Receipt,        label: 'Tipos de Cargo',       path: '/panel/tipos-cargo' },
+        { icon: Stamp,          label: 'Timbrados SET',        path: '/panel/timbrados-set' },
         { icon: CalendarDays,   label: 'Feriados',             path: '/panel/feriados' },
         { icon: ShieldOff,      label: 'Clientes Vetados',     path: '/panel/clientes-vetados' },
         { icon: Building2,       label: 'Empresa',              path: '/panel/empresa' },
@@ -280,9 +293,11 @@ function detectModule(pathname: string): string | null {
   if (pathname.startsWith('/operaciones'))   return 'operaciones';
   if (pathname.startsWith('/contactos'))     return 'contactos';
   if (pathname.startsWith('/cobranzas'))     return 'cobranzas';
+  if (pathname.startsWith('/conciliaciones')) return 'cobranzas';
   if (pathname.startsWith('/tesoreria'))     return 'tesoreria';
   if (pathname.startsWith('/dashboards'))    return 'cobranzas';
   if (pathname.startsWith('/admin'))         return 'admin';
   if (pathname.startsWith('/panel'))         return 'panel';
+  if (pathname.startsWith('/rrhh'))          return 'rrhh';
   return null;
 }

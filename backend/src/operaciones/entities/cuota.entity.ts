@@ -21,5 +21,21 @@ export class Cuota {
 
   @Column({ type: 'text', nullable: true })                  observaciones: string;
 
+  // Interés — desglose pagado
+  @Column({ name: 'interes_pagado', type: 'decimal', precision: 20, scale: 0, default: 0 }) interesPagado: number;
+
+  // Mora
+  @Column({ name: 'mora_calculada', type: 'decimal', precision: 20, scale: 0, default: 0 }) moraCalculada: number;
+  @Column({ name: 'mora_pagada',    type: 'decimal', precision: 20, scale: 0, default: 0 }) moraPagada: number;
+  @Column({ name: 'mora_exonerada', type: 'decimal', precision: 20, scale: 0, default: 0 }) moraExonerada: number;
+
+  // Gastos admin
+  @Column({ name: 'gastos_admin',        type: 'decimal', precision: 20, scale: 0, default: 0 }) gastosAdmin: number;
+  @Column({ name: 'gastos_admin_pagado', type: 'decimal', precision: 20, scale: 0, default: 0 }) gastosAdminPagado: number;
+
+  // Prórroga
+  @Column({ name: 'cargo_prorroga',        type: 'decimal', precision: 20, scale: 0, default: 0 }) cargoProrroga: number;
+  @Column({ name: 'cargo_prorroga_pagado', type: 'decimal', precision: 20, scale: 0, default: 0 }) cargoProrrogaPagado: number;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
 }

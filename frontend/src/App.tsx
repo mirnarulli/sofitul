@@ -53,6 +53,12 @@ const ClientesVetados      = lazy(() => import('./pages/panel/ClientesVetados'))
 const Feriados             = lazy(() => import('./pages/panel/Feriados'));
 const Integraciones        = lazy(() => import('./pages/panel/Integraciones'));
 const Empresa              = lazy(() => import('./pages/panel/Empresa'));
+const MediosPago           = lazy(() => import('./pages/panel/MediosPago'));
+const TiposCargo           = lazy(() => import('./pages/panel/TiposCargo'));
+const TimbradosSet         = lazy(() => import('./pages/panel/TimbradosSet'));
+const Empleados            = lazy(() => import('./pages/rrhh/Empleados'));
+const EmpleadoDetalle      = lazy(() => import('./pages/rrhh/EmpleadoDetalle'));
+const Conciliaciones       = lazy(() => import('./pages/conciliaciones/Conciliaciones'));
 
 // ── Fallback de carga ────────────────────────────────────────────────────────
 function PageLoader() {
@@ -132,6 +138,16 @@ export default function App() {
             <Route path="/panel/configuracion"      element={<Configuracion />} />
             <Route path="/panel/integraciones"      element={<Integraciones />} />
             <Route path="/panel/empresa"            element={<Empresa />} />
+            <Route path="/panel/medios-pago"        element={<MediosPago />} />
+            <Route path="/panel/tipos-cargo"        element={<TiposCargo />} />
+            <Route path="/panel/timbrados-set"      element={<TimbradosSet />} />
+
+            {/* RRHH */}
+            <Route path="/rrhh/empleados"           element={<Empleados />} />
+            <Route path="/rrhh/empleados/:id"       element={<EmpleadoDetalle />} />
+
+            {/* Conciliaciones */}
+            <Route path="/conciliaciones"           element={<Conciliaciones />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

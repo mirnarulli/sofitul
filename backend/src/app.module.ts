@@ -4,7 +4,16 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero, TipoDocumentoAdjunto, InformeRigor, OperacionInformeRigor, Banco, ClienteVetado, Departamento, Ciudad } from './entities';
+import { Usuario, Rol, Moneda, Caja, Configuracion, Pais, TipoDocumento, Frase, Canal, ProductoFinanciero, TipoDocumentoAdjunto, InformeRigor, OperacionInformeRigor, Banco, ClienteVetado, Departamento, Ciudad, MedioPago, TipoCargo } from './entities';
+import { Empleado } from './empleados/entities/empleado.entity';
+import { EmpleadoDocumento } from './empleados/entities/empleado-documento.entity';
+import { TalonarioInterno } from './talonarios/entities/talonario-interno.entity';
+import { TimbradoSet } from './talonarios/entities/timbrado-set.entity';
+import { CargoOperacion } from './cargos-operacion/entities/cargo-operacion.entity';
+import { Transaccion } from './transacciones/entities/transaccion.entity';
+import { TransaccionCuotaAplicacion } from './transacciones/entities/transaccion-cuota-aplicacion.entity';
+import { Conciliacion } from './conciliaciones/entities/conciliacion.entity';
+import { ScoringCliente } from './scoring-clientes/entities/scoring-cliente.entity';
 import { ContactoPF } from './contactos/entities/contacto-pf.entity';
 import { ContactoPJ } from './contactos/entities/contacto-pj.entity';
 import { Operacion } from './operaciones/entities/operacion.entity';
@@ -44,6 +53,15 @@ import { FeriadosModule }                 from './feriados/feriados.module';
 import { Feriado }                        from './feriados/feriado.entity';
 import { ValidataConsulta }               from './validata/entities/validata-consulta.entity';
 import { ValidataModule }                 from './validata/validata.module';
+import { MediosPagoModule }              from './medios-pago/medios-pago.module';
+import { TiposCargoModule }              from './tipos-cargo/tipos-cargo.module';
+import { EmpleadosModule }               from './empleados/empleados.module';
+import { TalonerosModule }               from './talonarios/talonarios.module';
+import { CargosOperacionModule }         from './cargos-operacion/cargos-operacion.module';
+import { TransaccionesModule }           from './transacciones/transacciones.module';
+import { MoraModule }                    from './mora/mora.module';
+import { ConciliacionesModule }          from './conciliaciones/conciliaciones.module';
+import { ScoringClientesModule }         from './scoring-clientes/scoring-clientes.module';
 
 @Module({
   controllers: [HealthController],
@@ -65,6 +83,13 @@ import { ValidataModule }                 from './validata/validata.module';
         Operacion, ChequeDetalle, Cuota, EstadoOperacion, EstadoTransicion,
         Feriado,
         ValidataConsulta,
+        MedioPago, TipoCargo,
+        Empleado, EmpleadoDocumento,
+        TalonarioInterno, TimbradoSet,
+        CargoOperacion,
+        Transaccion, TransaccionCuotaAplicacion,
+        Conciliacion,
+        ScoringCliente,
       ],
       synchronize: process.env.NODE_ENV !== 'production',
     }),
@@ -95,6 +120,15 @@ import { ValidataModule }                 from './validata/validata.module';
     CuentasTransferenciaModule,
     FeriadosModule,
     ValidataModule,
+    MediosPagoModule,
+    TiposCargoModule,
+    EmpleadosModule,
+    TalonerosModule,
+    CargosOperacionModule,
+    TransaccionesModule,
+    MoraModule,
+    ConciliacionesModule,
+    ScoringClientesModule,
   ],
 })
 export class AppModule {}

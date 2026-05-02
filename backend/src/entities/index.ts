@@ -15,3 +15,5 @@ export { Banco }                  from './banco.entity';
 export { ClienteVetado }          from './cliente-vetado.entity';
 export { Departamento }           from './departamento.entity';
 export { Ciudad }                 from './ciudad.entity';
+export { MedioPago }              from './medio-pago.entity';
+export { TipoCargo }              from './tipo-cargo.entity';
