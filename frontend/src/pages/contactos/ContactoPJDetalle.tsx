@@ -4,7 +4,8 @@ import {
   ArrowLeft, Edit2, Save, X, Printer, Plus, Trash2,
   TrendingUp, AlertTriangle, CheckCircle, Clock,
 } from 'lucide-react';
-import { contactosApi, panelGlobalApi } from '../../services/contactosApi';
+import { contactosApi, panelGlobalApi, documentosContactoApi } from '../../services/contactosApi';
+import { DocTab } from '../../components/ui/DocTab';
 import { useEmpresa } from '../../context/LogosContext';
 import { ESTADOS_VIGENTES } from '../../utils/estados';
 import CuentasTransferencia from '../../components/CuentasTransferencia';
@@ -155,7 +156,8 @@ function FichaImpresa({ pj, operaciones }: { pj: any; operaciones: any[] }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const TABS = ['Datos Empresa','Rep. Legal','Operaciones','Transferencia'] as const;
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') ?? 'http://localhost:3002';
+const TABS = ['Datos Empresa','Rep. Legal','Operaciones','Transferencia','Documentos','Due Diligencia'] as const;
 type Tab = typeof TABS[number];
 
 export default function ContactoPJDetalle() {
@@ -176,6 +178,8 @@ export default function ContactoPJDetalle() {
   const [ciudades,      setCiudades]      = useState<any[]>([]);
   const [califEdit,     setCalifEdit]     = useState(false);
   const [califSaving,   setCalifSaving]   = useState(false);
+  const [documentos,    setDocumentos]    = useState<any[]>([]);
+  const [tiposAdj,      setTiposAdj]      = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -188,6 +192,8 @@ export default function ContactoPJDetalle() {
         setPj(p); setOperaciones(ops); setPaises(ps);
         panelGlobalApi.getBancosActivos().then(setBancos).catch(() => {});
         panelGlobalApi.getDepartamentos().then(setDepartamentos).catch(() => {});
+        documentosContactoApi.getByContacto('pj', id).then(setDocumentos).catch(() => {});
+        documentosContactoApi.getTiposActivos().then(setTiposAdj).catch(() => {});
       })
       .catch(() => navigate('/contactos'))
       .finally(() => setLoading(false));
@@ -450,12 +456,29 @@ export default function ContactoPJDetalle() {
     );
   };
 
+  const recargarDocs = () =>
+    documentosContactoApi.getByContacto('pj', id!).then(setDocumentos).catch(() => {});
+
+  const renderDocsTab = (categoria: 'documentos' | 'due_diligence') => (
+    <DocTab
+      contactoTipo="pj"
+      contactoId={id!}
+      categoria={categoria}
+      documentos={documentos.filter(d => d.tipoCategoria === categoria)}
+      tipos={tiposAdj.filter(t => t.categoria === categoria)}
+      apiBase={API_BASE}
+      onReload={recargarDocs}
+    />
+  );
+
   const renderTabContent = () => {
     switch (tab) {
       case 'Datos Empresa':  return renderDatosEmpresa();
       case 'Rep. Legal':     return renderRepLegal();
       case 'Transferencia':  return renderTransferencia();
       case 'Operaciones':    return renderOperaciones();
+      case 'Documentos':     return renderDocsTab('documentos');
+      case 'Due Diligencia': return renderDocsTab('due_diligence');
       default: return null;
     }
   };

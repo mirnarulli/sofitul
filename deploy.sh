@@ -57,6 +57,9 @@ log "[2/6] Build frontend y backend..."
 cd "$ROOT_DIR/frontend"
 pnpm run build
 cd "$ROOT_DIR/backend"
+# Forzar build limpio: borra dist y tsbuildinfo para evitar que el cache
+# incremental de TypeScript omita archivos nuevos (bug reproducido en Windows/Git Bash)
+rm -rf dist tsconfig.build.tsbuildinfo
 pnpm run build
 cd "$ROOT_DIR"
 ok "Builds completados"
