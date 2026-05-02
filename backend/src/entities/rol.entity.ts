@@ -15,7 +15,7 @@ export class Rol {
   descripcion: string;
 
   @Column({ type: 'jsonb', default: '{}' })
-  permisos: any;
+  permisos: Record<string, unknown>;
 
   @Column({ name: 'es_sistema', default: false })
   esSistema: boolean;

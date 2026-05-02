@@ -106,7 +106,7 @@ export class Operacion {
   firmantes: Array<{ id: string; nombre: string; documento: string; tipo: 'pf' }>;
 
   // Bitácora interna de la operación (jsonb array de eventos)
-  @Column({ type: 'jsonb', default: '[]' })             bitacora: any[];
+  @Column({ type: 'jsonb', default: '[]' })             bitacora: { fecha: string; de: string | null; a: string; nota: string | null; tipo?: string; usuario?: string | null; [key: string]: unknown }[];
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' }) updatedAt: Date;

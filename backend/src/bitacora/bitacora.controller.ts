@@ -8,14 +8,18 @@ export class BitacoraController {
   constructor(private bitacoraService: BitacoraService) {}
 
   @Get()
-  getAll(@Query() q: any) {
+  getAll(
+    @Query('modulo')     modulo?: string,
+    @Query('usuarioId')  usuarioId?: string,
+    @Query('desde')      desde?: string,
+    @Query('hasta')      hasta?: string,
+    @Query('page')       page?: string,
+    @Query('limit')      limit?: string,
+  ) {
     return this.bitacoraService.getAll({
-      modulo:    q.modulo,
-      usuarioId: q.usuarioId,
-      desde:     q.desde,
-      hasta:     q.hasta,
-      page:      q.page ? parseInt(q.page) : 1,
-      limit:     q.limit ? parseInt(q.limit) : 50,
+      modulo, usuarioId, desde, hasta,
+      page:  page  ? parseInt(page,  10) : 1,
+      limit: limit ? parseInt(limit, 10) : 50,
     });
   }
 }

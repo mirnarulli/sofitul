@@ -39,7 +39,7 @@ export class ProductosFinancierosService {
   async removeFormulario(id: string, formularioId: string) {
     const prod = await this.repo.findOne({ where: { id } });
     if (!prod) throw new NotFoundException('Producto no encontrado');
-    const formularios = (prod.formularios ?? []).filter((f: any) => f.id !== formularioId);
+    const formularios = (prod.formularios ?? []).filter(f => f.id !== formularioId);
     await this.repo.update(id, { formularios });
     return this.repo.findOne({ where: { id } });
   }

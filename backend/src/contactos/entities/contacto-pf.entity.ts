@@ -41,19 +41,19 @@ export class ContactoPF {
   @Column({ nullable: true })                               profesion: string;
 
   // Ingresos y egresos (en Guaraníes)
-  @Column({ type: 'jsonb', nullable: true })                ingresos: any;
-  @Column({ type: 'jsonb', nullable: true })                egresos: any;
+  @Column({ type: 'jsonb', nullable: true })                ingresos: unknown;
+  @Column({ type: 'jsonb', nullable: true })                egresos: unknown;
   @Column({ name: 'total_ingresos', type: 'decimal', precision: 20, scale: 0, default: 0 }) totalIngresos: number;
   @Column({ name: 'total_egresos', type: 'decimal', precision: 20, scale: 0, default: 0 })  totalEgresos: number;
   @Column({ name: 'capacidad_pago', type: 'decimal', precision: 20, scale: 0, default: 0 }) capacidadPago: number;
 
   // Patrimonio
-  @Column({ type: 'jsonb', nullable: true })                activos: any;
-  @Column({ type: 'jsonb', nullable: true })                pasivos: any;
+  @Column({ type: 'jsonb', nullable: true })                activos: unknown;
+  @Column({ type: 'jsonb', nullable: true })                pasivos: unknown;
   @Column({ name: 'patrimonio_neto', type: 'decimal', precision: 20, scale: 0, default: 0 }) patrimonioNeto: number;
 
   // Referencias
-  @Column({ type: 'jsonb', nullable: true })                referencias: any;
+  @Column({ type: 'jsonb', nullable: true })                referencias: unknown;
 
   // Due diligence / compliance
   @Column({ name: 'es_pep', default: false })               esPep: boolean;

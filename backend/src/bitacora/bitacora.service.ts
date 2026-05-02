@@ -9,7 +9,7 @@ export interface LogEntry {
   modulo: string;
   entidad?: string;
   entidadId?: string;
-  detalle?: Record<string, any>;
+  detalle?: Record<string, unknown>;
   ip?: string;
 }
 
@@ -42,7 +42,7 @@ export class BitacoraService {
     const offset = (page - 1) * limit;
 
     const conds: string[] = [];
-    const params: any[]   = [];
+    const params: string[] = [];
     let i = 1;
 
     if (filtros.modulo)    { conds.push(`b.modulo = $${i++}`);       params.push(filtros.modulo); }

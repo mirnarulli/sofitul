@@ -13,7 +13,7 @@ export class CreateRolDto {
   descripcion?: string;
 
   @IsOptional() @IsObject()
-  permisos?: any;
+  permisos?: Record<string, unknown>;
 
   @IsOptional() @IsBoolean()
   activo?: boolean;

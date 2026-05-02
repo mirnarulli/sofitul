@@ -14,7 +14,7 @@ export class ValidataController {
    *  Cualquier usuario autenticado puede consultar.
    *  Guarda automáticamente en bitácora. */
   @Post('consultar')
-  consultar(@Body() dto: ConsultarValidataDto, @Req() req: any) {
+  consultar(@Body() dto: ConsultarValidataDto, @Req() req: { user?: { email?: string } }) {
     const email  = req.user?.email  ?? undefined;
     const origen = dto.origen       ?? undefined;
     return this.svc.consultar(dto.cedula, email, origen);
@@ -25,11 +25,15 @@ export class ValidataController {
   @Get('consultas')
   @UseGuards(RolesGuard)
   @Roles('SUPERADMIN', 'ADMIN')
-  getHistorial(@Query() q: any) {
+  getHistorial(
+    @Query('cedula') cedula?: string,
+    @Query('page')   page?: string,
+    @Query('limit')  limit?: string,
+  ) {
     return this.svc.getHistorial({
-      cedula: q.cedula || undefined,
-      page:  q.page  ? +q.page  : 1,
-      limit: q.limit ? +q.limit : 50,
+      cedula: cedula || undefined,
+      page:  page  ? +page  : 1,
+      limit: limit ? +limit : 50,
     });
   }
 

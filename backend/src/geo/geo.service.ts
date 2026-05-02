@@ -15,8 +15,9 @@ export class GeoService {
   }
 
   getCiudades(departamentoId?: number) {
-    const where: any = { activo: true };
-    if (departamentoId) where.departamentoId = departamentoId;
-    return this.ciudadRepo.find({ where, order: { nombre: 'ASC' } });
+    return this.ciudadRepo.find({
+      where: { activo: true, ...(departamentoId ? { departamentoId } : {}) },
+      order: { nombre: 'ASC' },
+    });
   }
 }

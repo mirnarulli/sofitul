@@ -8,7 +8,11 @@ export class CobranzasController {
   constructor(private svc: CobranzasService) {}
 
   @Get()
-  getCartera(@Query() q: any) { return this.svc.getCartera({ estado: q.estado, cobradorId: q.cobradorId, tipo: q.tipo }); }
+  getCartera(
+    @Query('estado')      estado?: string,
+    @Query('cobradorId')  cobradorId?: string,
+    @Query('tipo')        tipo?: string,
+  ) { return this.svc.getCartera({ estado, cobradorId, tipo }); }
 
   @Get('resumen')
   getResumen() { return this.svc.getResumenCartera(); }
@@ -22,7 +26,13 @@ export class CobranzasController {
   }
 
   @Post(':id/pago')
-  registrarPago(@Param('id') id: string, @Body() b: any) {
+  registrarPago(@Param('id') id: string, @Body() b: {
+    monto: number;
+    fechaPago: string;
+    recibo?: string;
+    nota?: string;
+    emailDestino?: string;
+  }) {
     return this.svc.registrarPago(id, b);
   }
 }

@@ -37,7 +37,7 @@ export class UsersService {
     ]);
     const rolesMap = new Map(roles.map(r => [r.id, r]));
     return usuarios.map(u => {
-      const { passwordHash, tokenInvitacion, tokenInvitacionExpira, ...safe } = u as any;
+      const { passwordHash: _pw, tokenInvitacion: _ti, tokenInvitacionExpira: _tie, ...safe } = u;
       const rol = safe.rolId ? rolesMap.get(safe.rolId) : undefined;
       return { ...safe, rolNombre: rol?.nombre ?? null, rolCodigo: rol?.codigo ?? null };
     });
@@ -148,7 +148,7 @@ export class UsersService {
     return this.rolesRepo.find({ order: { nombre: 'ASC' } });
   }
 
-  async createRol(data: { codigo: string; nombre: string; descripcion?: string; permisos?: any }) {
+  async createRol(data: { codigo: string; nombre: string; descripcion?: string; permisos?: Record<string, unknown> }) {
     const rol = this.rolesRepo.create(data);
     return this.rolesRepo.save(rol);
   }

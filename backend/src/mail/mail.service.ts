@@ -21,7 +21,7 @@ export class MailService {
     return process.env.FRONTEND_URL || 'http://localhost:5174';
   }
 
-  async enviarInvitacion(usuario: any): Promise<void> {
+  async enviarInvitacion(usuario: { email: string; primerNombre: string; tokenInvitacion: string }): Promise<void> {
     const url = `${this.frontendUrl()}/completar-perfil?token=${usuario.tokenInvitacion}`;
     await this.transporter.sendMail({
       from:    process.env.SMTP_FROM,
@@ -39,7 +39,7 @@ export class MailService {
     });
   }
 
-  async enviarResetPassword(usuario: any): Promise<void> {
+  async enviarResetPassword(usuario: { email: string; primerNombre?: string; tokenInvitacion: string }): Promise<void> {
     const url = `${this.frontendUrl()}/recuperar-password?token=${usuario.tokenInvitacion}`;
     await this.transporter.sendMail({
       from:    process.env.SMTP_FROM,

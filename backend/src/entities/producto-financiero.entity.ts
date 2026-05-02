@@ -23,11 +23,11 @@ export class ProductoFinanciero {
 
   // Array de formularios asociados: [{ id, nombre, requerido }]
   @Column({ type: 'jsonb', default: '[]' })
-  formularios: any[];
+  formularios: { id: string; nombre: string; requerido: boolean }[];
 
   // Configuración del producto: max_cheques, numeracion_inicio, etc.
   @Column({ type: 'jsonb', default: '{}' })
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 
   @Column({ default: true })
   activo: boolean;

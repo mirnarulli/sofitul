@@ -9,17 +9,19 @@ import * as fs from 'fs';
 function uploadsConfig(subfolder: string, prefix: string) {
   return {
     storage: diskStorage({
-      destination: (_req: any, _file: any, cb: any) => {
+      destination: (_req: Express.Request, _file: Express.Multer.File, cb: (e: null, d: string) => void) => {
         const dir = join(process.cwd(), 'uploads', subfolder);
         fs.mkdirSync(dir, { recursive: true });
         cb(null, dir);
       },
-      filename: (req: any, file: any, cb: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      filename: (req: any, file: Express.Multer.File, cb: (e: null, f: string) => void) => {
+        const id     = (req.params?.id as string | undefined) ?? 'new';
         const suffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-        cb(null, `${prefix}-${req.params.id}-${suffix}${extname(file.originalname)}`);
+        cb(null, `${prefix}-${id}-${suffix}${extname(file.originalname)}`);
       },
     }),
-    fileFilter: (_req: any, file: any, cb: any) => {
+    fileFilter: (_req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, acceptFile: boolean) => void) => {
       const allowedExt = ['.pdf', '.jpg', '.jpeg', '.png'];
       const allowedMime = ['application/pdf', 'image/jpeg', 'image/png'];
       const extOk  = allowedExt.includes(extname(file.originalname).toLowerCase());
@@ -51,13 +53,19 @@ export class OperacionesController {
   constructor(private svc: OperacionesService) {}
 
   @Get()
-  findAll(@Query() q: any) {
+  findAll(
+    @Query('estado')     estado?: string,
+    @Query('tipo')       tipo?: string,
+    @Query('contactoId') contactoId?: string,
+    @Query('page')       page?: string,
+    @Query('limit')      limit?: string,
+  ) {
     return this.svc.findAll({
-      estado:     q.estado     || undefined,
-      tipo:       q.tipo       || undefined,
-      contactoId: q.contactoId || undefined,
-      page:  q.page  ? +q.page  : 1,
-      limit: q.limit ? +q.limit : 50,
+      estado:     estado     || undefined,
+      tipo:       tipo       || undefined,
+      contactoId: contactoId || undefined,
+      page:  page  ? +page  : 1,
+      limit: limit ? +limit : 50,
     });
   }
 
@@ -99,7 +107,7 @@ export class OperacionesController {
   update(@Param('id') id: string, @Body() b: UpdateOperacionDto) { return this.svc.update(id, b); }
 
   @Put(':id/estado')
-  cambiarEstado(@Param('id') id: string, @Body() b: CambiarEstadoDto, @Req() req: any) {
+  cambiarEstado(@Param('id') id: string, @Body() b: CambiarEstadoDto, @Req() req: { user?: { email?: string } }) {
     return this.svc.cambiarEstado(id, b.estado, b.nota, req.user?.email);
   }
 
@@ -138,13 +146,13 @@ export class OperacionesController {
   @UseInterceptors(FileInterceptor('file', uploadsConfig('fichas', 'informconf')))
   async uploadInformconf(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No se recibió archivo');
-    return this.svc.actualizarContrato(id, { fichaInformconfUrl: `/uploads/fichas/${file.filename}` } as any);
+    return this.svc.actualizarContrato(id, { fichaInformconfUrl: `/uploads/fichas/${file.filename}` });
   }
 
   @Post(':id/ficha-infocheck/upload')
   @UseInterceptors(FileInterceptor('file', uploadsConfig('fichas', 'infocheck')))
   async uploadInfocheck(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No se recibió archivo');
-    return this.svc.actualizarContrato(id, { fichaInfocheckUrl: `/uploads/fichas/${file.filename}` } as any);
+    return this.svc.actualizarContrato(id, { fichaInfocheckUrl: `/uploads/fichas/${file.filename}` });
   }
 }

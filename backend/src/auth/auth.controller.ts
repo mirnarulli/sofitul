@@ -15,15 +15,15 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
-  login(@Body() body: LoginDto, @Req() req: any) {
+  login(@Body() body: LoginDto, @Req() req: { headers: Record<string, string | string[] | undefined>; socket?: { remoteAddress?: string } }) {
     const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress;
-    return this.authService.login(body.email, body.password, ip);
+    return this.authService.login(body.email, body.password, ip as string | undefined);
   }
 
   @Post('invitar')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SUPERADMIN', 'ADMIN')
-  invitar(@Body() body: InvitarDto, @Req() req: any) {
+  invitar(@Body() body: InvitarDto, @Req() req: { user: { id: string } }) {
     return this.authService.invitarUsuario({ ...body, invitadoPor: req.user.id });
   }
 
@@ -49,13 +49,13 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  getMe(@Req() req: any) {
+  getMe(@Req() req: { user: { id: string } }) {
     return this.authService.getMiPerfil(req.user.id);
   }
 
   @Post('cambiar-password')
   @UseGuards(JwtAuthGuard)
-  cambiarPassword(@Body() body: CambiarPasswordDto, @Req() req: any) {
+  cambiarPassword(@Body() body: CambiarPasswordDto, @Req() req: { user: { id: string } }) {
     return this.authService.cambiarPassword(req.user.id, body.passwordActual, body.passwordNuevo);
   }
 

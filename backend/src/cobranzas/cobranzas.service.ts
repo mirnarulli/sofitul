@@ -15,7 +15,7 @@ export class CobranzasService {
 
   async getCartera(filtros: { estado?: string; cobradorId?: string; tipo?: string } = {}) {
     let where = `WHERE o.estado NOT IN ('CERRADO', 'RECHAZADO')`;
-    const params: any[] = [];
+    const params: string[] = [];
     let i = 1;
 
     if (filtros.estado)     { where += ` AND o.estado = $${i++}`;           params.push(filtros.estado); }

@@ -28,7 +28,7 @@ export class ContactoPJ {
   @Column({ name: 'rep_legal_cargo', nullable: true })       repLegalCargo: string;
 
   // Beneficiarios finales (jsonb array)
-  @Column({ name: 'beneficiarios_finales', type: 'jsonb', nullable: true }) beneficiariosFinales: any;
+  @Column({ name: 'beneficiarios_finales', type: 'jsonb', nullable: true }) beneficiariosFinales: unknown;
 
   // Due diligence
   @Column({ name: 'es_pep', default: false })                esPep: boolean;
