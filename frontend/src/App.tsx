@@ -20,6 +20,7 @@ const SimuladorDescuento   = lazy(() => import('./pages/operaciones/SimuladorDes
 const PagarePreview        = lazy(() => import('./pages/operaciones/PagarePreview'));
 const FichaOperacion       = lazy(() => import('./pages/operaciones/FichaOperacion'));
 const AnalisisCredito      = lazy(() => import('./pages/operaciones/AnalisisCredito'));
+const EstadoCuenta         = lazy(() => import('./pages/operaciones/EstadoCuenta'));
 const DashboardOperaciones = lazy(() => import('./pages/operaciones/DashboardOperaciones'));
 
 const Contactos            = lazy(() => import('./pages/contactos/Contactos'));
@@ -95,9 +96,10 @@ export default function App() {
             <Route path="/operaciones/simulador" element={<SimuladorDescuento />} />
             <Route path="/operaciones/:id/pagare"    element={<PagarePreview />} />
             <Route path="/operaciones/:id/solicitud" element={<FichaOperacion />} />
-            <Route path="/operaciones/:id/analisis"  element={<AnalisisCredito />} />
-            <Route path="/operaciones/nueva"         element={<NuevaOperacion />} />
-            <Route path="/operaciones/:id"           element={<OperacionDetalle />} />
+            <Route path="/operaciones/:id/analisis"      element={<AnalisisCredito />} />
+            <Route path="/operaciones/:id/estado-cuenta" element={<EstadoCuenta />} />
+            <Route path="/operaciones/nueva"             element={<NuevaOperacion />} />
+            <Route path="/operaciones/:id"               element={<OperacionDetalle />} />
 
             {/* Contactos */}
             <Route path="/contactos"                  element={<Contactos />} />

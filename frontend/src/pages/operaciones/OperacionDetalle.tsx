@@ -376,6 +376,10 @@ export default function OperacionDetalle() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100">
             <FileText size={14}/> Análisis
           </Link>
+          <Link to={`/operaciones/${id}/estado-cuenta`} target="_blank"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <FileText size={14}/> Estado de Cuenta
+          </Link>
           <Link to={`/operaciones/${id}/solicitud`} target="_blank"
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
             <FileText size={14}/> Liquidación
@@ -517,7 +521,7 @@ export default function OperacionDetalle() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-50">
-                <tr>{['Banco','Librador','N° Cheque','Vencimiento','Monto','Capital','Estado','Acción'].map(h => (
+                <tr>{['Banco','Librador','N° Cheque','F. Emisión','F. Vencimiento','Monto','Capital','Estado','Acción'].map(h => (
                   <th key={h} className="px-3 py-2 text-left text-gray-500 font-semibold uppercase">{h}</th>
                 ))}</tr>
               </thead>
@@ -529,6 +533,7 @@ export default function OperacionDetalle() {
                       <td className="px-3 py-2">{c.banco}</td>
                       <td className="px-3 py-2">{c.librador}</td>
                       <td className="px-3 py-2 font-mono">{c.nroCheque}</td>
+                      <td className="px-3 py-2">{c.fechaEmision ? formatDate(c.fechaEmision) : '—'}</td>
                       <td className="px-3 py-2">{formatDate(c.fechaVencimiento)}</td>
                       <td className="px-3 py-2 font-medium">{formatGs(c.monto)}</td>
                       <td className="px-3 py-2 text-green-700">{formatGs(c.capitalInvertido)}</td>

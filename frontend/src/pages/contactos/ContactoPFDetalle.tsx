@@ -4,7 +4,9 @@ import {
   ArrowLeft, Edit2, Save, X, Printer,
   TrendingUp, AlertTriangle, CheckCircle, Clock,
 } from 'lucide-react';
-import { contactosApi, panelGlobalApi, documentosContactoApi } from '../../services/contactosApi';
+import { contactosApi, panelGlobalApi, documentosContactoApi, mediosPagoApi } from '../../services/contactosApi';
+import { transaccionesApi, cargosOperacionApi } from '../../services/financieroApi';
+import { operacionesApi } from '../../services/operacionesApi';
 import { scoringClientesApi } from '../../services/rrhhApi';
 import { useEmpresa } from '../../context/LogosContext';
 import { formatDate, formatGs, diasHasta } from '../../utils/formatters';
@@ -275,7 +277,7 @@ function FichaImpresa({ pf, operaciones, empresas }: { pf: any; operaciones: any
 // ── Main component ────────────────────────────────────────────────────────────
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') ?? 'http://localhost:3002';
-const TABS = ['Datos Personales','Financiero','Operaciones','Transferencia','Due Diligencia','Documentos','Scoring'] as const;
+const TABS = ['Datos Personales','Financiero','Operaciones','Transferencia','Due Diligencia','Documentos','Scoring','Estado de Cuenta'] as const;
 type Tab = typeof TABS[number];
 
 export default function ContactoPFDetalle() {
@@ -304,6 +306,14 @@ export default function ContactoPFDetalle() {
   const [loadingScoring,setLoadingScoring]= useState(false);
   const [modalScoring,  setModalScoring]  = useState(false);
   const [nuevoScoring,  setNuevoScoring]  = useState({ calificacion: 7, descripcion: '', observacion: '' });
+
+  // Estado de Cuenta tab state
+  const [ecOpId,    setEcOpId]    = useState<string>('');
+  const [ecOp,      setEcOp]      = useState<any>(null);
+  const [ecTx,      setEcTx]      = useState<any[]>([]);
+  const [ecCargos,  setEcCargos]  = useState<any[]>([]);
+  const [ecMedios,  setEcMedios]  = useState<any[]>([]);
+  const [ecLoading, setEcLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -351,6 +361,33 @@ export default function ContactoPFDetalle() {
         .finally(() => setLoadingScoring(false));
     }
   }, [tab, pf?.numeroDoc]);
+
+  // Load Estado de Cuenta data when tab is active and operation is selected
+  useEffect(() => {
+    if (tab !== 'Estado de Cuenta' || !ecOpId) return;
+    setEcLoading(true);
+    Promise.all([
+      operacionesApi.getById(ecOpId),
+      transaccionesApi.getByOperacion(ecOpId),
+      cargosOperacionApi.getByOperacion(ecOpId),
+      mediosPagoApi.getActivos(),
+    ])
+      .then(([opFull, tx, cargos, medios]) => {
+        setEcOp(opFull);
+        setEcTx(tx);
+        setEcCargos(cargos);
+        setEcMedios(medios);
+      })
+      .catch(() => {})
+      .finally(() => setEcLoading(false));
+  }, [tab, ecOpId]);
+
+  // Auto-select first operation when entering the tab
+  useEffect(() => {
+    if (tab === 'Estado de Cuenta' && !ecOpId && operaciones.length > 0) {
+      setEcOpId(operaciones[0].id);
+    }
+  }, [tab, operaciones]);
 
   if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
   if (!pf) return null;
@@ -867,6 +904,184 @@ export default function ContactoPFDetalle() {
     );
   };
 
+  const renderEstadoCuenta = () => {
+    if (operaciones.length === 0) {
+      return <p className="text-sm text-gray-400 italic py-8 text-center">Sin operaciones registradas.</p>;
+    }
+
+    const cobrosAplicados = ecTx.filter((tx: any) => tx.estado === 'APLICADO' && tx.tipo === 'PAGO');
+    const totalCobrado    = cobrosAplicados.reduce((s: number, tx: any) => s + Number(tx.montoTotal), 0);
+    const cuotas          = ecOp?.cuotas ?? [];
+    const saldoPendiente  = cuotas.length > 0
+      ? cuotas.reduce((s: number, c: any) => s + Number(c.saldo ?? 0), 0)
+      : Math.max(0, Number(ecOp?.montoTotal ?? 0) - totalCobrado);
+    const cargosPendientes      = ecCargos.filter((c: any) => c.estado === 'PENDIENTE');
+    const cargosPendientesTotal = cargosPendientes.reduce((s: number, c: any) => s + Number(c.montoCalculado), 0);
+    const getMedio = (medioPagoId?: string) =>
+      medioPagoId ? (ecMedios.find((m: any) => m.id === medioPagoId)?.nombre ?? '—') : '—';
+    const tipoLabel = ecOp?.tipoOperacion === 'DESCUENTO_CHEQUE' ? 'Descuento de Cheque' : 'Préstamo de Consumo';
+
+    return (
+      <div className="space-y-4">
+        {/* Operation selector */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
+          <label className="text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">Operación</label>
+          <select
+            value={ecOpId}
+            onChange={e => { setEcOpId(e.target.value); setEcOp(null); setEcTx([]); setEcCargos([]); }}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {operaciones.map((o: any) => (
+              <option key={o.id} value={o.id}>{o.nroOperacion} — {formatGs(o.montoTotal)} — {o.estado}</option>
+            ))}
+          </select>
+          {ecOpId && (
+            <a
+              href={`/operaciones/${ecOpId}/estado-cuenta`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-white bg-blue-600 border border-blue-600 rounded-lg hover:bg-blue-700 whitespace-nowrap font-medium"
+            >
+              🖨 Imprimir
+            </a>
+          )}
+        </div>
+
+        {ecLoading && (
+          <div className="text-center py-10 text-gray-400 text-sm">Cargando...</div>
+        )}
+
+        {!ecLoading && ecOp && (
+          <>
+            {/* Client + operation info */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+              <div><p className="text-xs text-gray-400">Tipo</p><p className="font-medium">{tipoLabel}</p></div>
+              <div><p className="text-xs text-gray-400">Fecha operación</p><p className="font-medium">{formatDate(ecOp.fechaOperacion)}</p></div>
+              <div><p className="text-xs text-gray-400">Vencimiento</p><p className="font-medium">{formatDate(ecOp.fechaVencimiento)}</p></div>
+            </div>
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+                <p className="text-xs text-gray-400 mb-1">Desembolsado</p>
+                <p className="font-semibold text-gray-800">{formatGs(ecOp.netoDesembolsar)}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+                <p className="text-xs text-gray-400 mb-1">Total cobrado</p>
+                <p className="font-semibold text-green-700">{formatGs(totalCobrado)}</p>
+              </div>
+              <div className={`rounded-xl border p-4 text-center ${saldoPendiente > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                <p className="text-xs text-gray-400 mb-1">Saldo pendiente</p>
+                {saldoPendiente > 0
+                  ? <p className="font-bold text-red-700">{formatGs(saldoPendiente)}</p>
+                  : <p className="font-bold text-green-700">SIN DEUDA</p>}
+              </div>
+            </div>
+            {cargosPendientesTotal > 0 && (
+              <p className="text-xs text-orange-600 text-right">+ {formatGs(cargosPendientesTotal)} en cargos pendientes</p>
+            )}
+
+            {/* Cuotas */}
+            {cuotas.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan de pagos</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>{['N°','Vencimiento','Capital','Interés','Mora','Total','Pagado','Saldo','Estado'].map(h => (
+                        <th key={h} className="px-2 py-1.5 text-left text-gray-500 font-semibold uppercase">{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {cuotas.map((c: any) => (
+                        <tr key={c.id ?? c.nroCuota}>
+                          <td className="px-2 py-1.5 font-medium">{c.nroCuota}</td>
+                          <td className="px-2 py-1.5">{formatDate(c.fechaVencimiento)}</td>
+                          <td className="px-2 py-1.5">{formatGs(c.capital)}</td>
+                          <td className="px-2 py-1.5 text-red-600">{formatGs(c.interes)}</td>
+                          <td className="px-2 py-1.5 text-orange-600">{Number(c.moraCalculada) > 0 ? formatGs(c.moraCalculada) : '—'}</td>
+                          <td className="px-2 py-1.5 font-medium">{formatGs(c.total)}</td>
+                          <td className="px-2 py-1.5 text-green-700">{formatGs(c.pagado)}</td>
+                          <td className="px-2 py-1.5 font-medium">{formatGs(c.saldo)}</td>
+                          <td className="px-2 py-1.5">
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                              c.estado === 'PAGADA' ? 'bg-green-100 text-green-700' :
+                              c.estado === 'MORA' ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-600'}`}>{c.estado}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Cobros */}
+            {cobrosAplicados.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Cobros registrados</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>{['Fecha','N° Recibo','Medio','Capital','Interés','Mora','Total'].map(h => (
+                        <th key={h} className="px-2 py-1.5 text-left text-gray-500 font-semibold uppercase">{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {cobrosAplicados.map((tx: any) => (
+                        <tr key={tx.id}>
+                          <td className="px-2 py-1.5">{formatDate(tx.fechaTransaccion)}</td>
+                          <td className="px-2 py-1.5 font-mono">{tx.nroRecibo ?? '—'}</td>
+                          <td className="px-2 py-1.5">{getMedio(tx.medioPagoId)}</td>
+                          <td className="px-2 py-1.5">{formatGs(tx.montoCapital)}</td>
+                          <td className="px-2 py-1.5 text-red-600">{Number(tx.montoInteres) > 0 ? formatGs(tx.montoInteres) : '—'}</td>
+                          <td className="px-2 py-1.5 text-orange-600">{Number(tx.montoMora) > 0 ? formatGs(tx.montoMora) : '—'}</td>
+                          <td className="px-2 py-1.5 font-bold">{formatGs(tx.montoTotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 border-t">
+                      <tr>
+                        <td colSpan={6} className="px-2 py-1.5 text-xs text-gray-500 font-medium text-right">Total cobrado</td>
+                        <td className="px-2 py-1.5 font-bold text-green-700">{formatGs(totalCobrado)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Cargos pendientes */}
+            {cargosPendientes.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Cargos pendientes</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>{['Descripción','Categoría','Monto'].map(h => (
+                        <th key={h} className="px-2 py-1.5 text-left text-gray-500 font-semibold uppercase">{h}</th>
+                      ))}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {cargosPendientes.map((c: any) => (
+                        <tr key={c.id}>
+                          <td className="px-2 py-1.5">{c.descripcion}</td>
+                          <td className="px-2 py-1.5">{c.categoria}</td>
+                          <td className="px-2 py-1.5 font-medium">{formatGs(c.montoCalculado)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   const renderTabContent = () => {
     switch (tab) {
       case 'Datos Personales': return renderDatosPersonales();
@@ -876,6 +1091,7 @@ export default function ContactoPFDetalle() {
       case 'Due Diligencia':   return renderDocsTab('due_diligence');
       case 'Operaciones':      return renderOperaciones();
       case 'Scoring':          return renderScoring();
+      case 'Estado de Cuenta': return renderEstadoCuenta();
       default: return null;
     }
   };
