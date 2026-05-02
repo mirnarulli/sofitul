@@ -45,3 +45,5 @@ coverage/
 
 # TypeScript build info
 *.tsbuildinfo
+package-lock.json
+node_modules/
