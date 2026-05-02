@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Printer, FileText, Upload, ExternalLink, Save, UserCheck, Plus, X, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { operacionesApi } from '../../services/operacionesApi';
 import { contactosApi, mediosPagoApi } from '../../services/contactosApi';
-import { transaccionesApi } from '../../services/financieroApi';
+import { transaccionesApi, cargosOperacionApi } from '../../services/financieroApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
 
@@ -87,6 +87,16 @@ export default function OperacionDetalle() {
   // Cheques — cambio de estado individual
   const [updatingCheque, setUpdatingCheque] = useState<string | null>(null); // id del cheque en proceso
 
+  // Transacciones y cargos
+  const [transacciones,   setTransacciones]   = useState<any[]>([]);
+  const [cargos,          setCargos]          = useState<any[]>([]);
+  const [modalReverso,    setModalReverso]    = useState<string | null>(null); // transaccionId
+  const [motivoReverso,   setMotivoReverso]   = useState('');
+  const [reversando,      setReversando]      = useState(false);
+  const [modalExonerar,   setModalExonerar]   = useState<string | null>(null); // cargoId
+  const [motivoExonerar,  setMotivoExonerar]  = useState('');
+  const [exonerando,      setExonerando]      = useState(false);
+
   // Firmantes
   const [firmantes,        setFirmantes]        = useState<any[]>([]);
   const [buscarFirmante,   setBuscarFirmante]   = useState('');
@@ -101,17 +111,19 @@ export default function OperacionDetalle() {
         setOp(o); setEstados(e);
         setNroContrato(o.nroContratoTeDescuento ?? '');
         setFirmantes(o.firmantes ?? []);
-        // Cargar estados permitidos desde el estado actual
         if (o.estado) {
           operacionesApi.getSiguientesEstados(o.estado)
             .then(setSiguientes)
-            .catch(() => setSiguientes(e)); // fallback: todos
+            .catch(() => setSiguientes(e));
         } else {
           setSiguientes(e);
         }
       })
       .catch(() => navigate('/operaciones'))
       .finally(() => setLoading(false));
+    // Load transactions and charges independently (don't block main load)
+    transaccionesApi.getByOperacion(id).then(setTransacciones).catch(() => {});
+    cargosOperacionApi.getByOperacion(id).then(setCargos).catch(() => {});
   }, [id, navigate]);
 
   useEffect(() => {
@@ -126,6 +138,9 @@ export default function OperacionDetalle() {
     if (o.estado) {
       operacionesApi.getSiguientesEstados(o.estado).then(setSiguientes).catch(() => {});
     }
+    // Also refresh transactions and charges
+    transaccionesApi.getByOperacion(id).then(setTransacciones).catch(() => {});
+    cargosOperacionApi.getByOperacion(id).then(setCargos).catch(() => {});
   };
 
   const recargarOp = async () => {
@@ -289,6 +304,32 @@ export default function OperacionDetalle() {
     } catch (e: any) {
       setToastCobro(e?.response?.data?.message ?? 'Error al registrar cobro');
     } finally { setCobrando(false); }
+  };
+
+  const handleReversar = async () => {
+    if (!modalReverso || !motivoReverso.trim()) return;
+    setReversando(true);
+    try {
+      await transaccionesApi.reversar(modalReverso, { motivo: motivoReverso });
+      setModalReverso(null); setMotivoReverso('');
+      setToastCobro('Transacción reversada');
+      cargar();
+    } catch (e: any) {
+      setToastCobro(e?.response?.data?.message ?? 'Error al reversar');
+    } finally { setReversando(false); }
+  };
+
+  const handleExonerar = async () => {
+    if (!modalExonerar || !motivoExonerar.trim()) return;
+    setExonerando(true);
+    try {
+      await cargosOperacionApi.exonerar(modalExonerar, { motivo: motivoExonerar });
+      setModalExonerar(null); setMotivoExonerar('');
+      setToastCobro('Cargo exonerado');
+      cargosOperacionApi.getByOperacion(id!).then(setCargos).catch(() => {});
+    } catch (e: any) {
+      setToastCobro(e?.response?.data?.message ?? 'Error al exonerar');
+    } finally { setExonerando(false); }
   };
 
   if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
@@ -558,6 +599,133 @@ export default function OperacionDetalle() {
         </div>
       )}
 
+      {/* Cobros registrados */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+          Cobros registrados ({transacciones.filter((t: any) => t.tipo === 'PAGO').length})
+        </h2>
+        {transacciones.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">Sin cobros registrados.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50">
+                <tr>{['Fecha','N° Recibo','Medio pago','Capital','Interés','Mora','Gastos','Total','Estado',''].map(h => (
+                  <th key={h} className="px-3 py-2 text-left text-gray-500 font-semibold uppercase text-xs">{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {transacciones.map((tx: any) => {
+                  const esReverso = tx.esReverso || tx.tipo === 'REVERSO';
+                  return (
+                    <tr key={tx.id} className={esReverso ? 'bg-red-50 opacity-70' : tx.estado === 'REVERSADO' ? 'opacity-50' : ''}>
+                      <td className="px-3 py-2 whitespace-nowrap">{formatDate(tx.fechaTransaccion)}</td>
+                      <td className="px-3 py-2 font-mono">
+                        {esReverso
+                          ? <span className="text-red-500">REVERSO</span>
+                          : tx.nroRecibo ?? <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-3 py-2">{tx.medioPagoId ? tx.medioPagoId.substring(0,8) + '…' : '—'}</td>
+                      <td className="px-3 py-2 font-medium">{formatGs(tx.montoCapital)}</td>
+                      <td className="px-3 py-2 text-red-600">{Number(tx.montoInteres) > 0 ? formatGs(tx.montoInteres) : '—'}</td>
+                      <td className="px-3 py-2 text-orange-600">{Number(tx.montoMora) > 0 ? formatGs(tx.montoMora) : '—'}</td>
+                      <td className="px-3 py-2 text-purple-600">{Number(tx.montoGastosAdmin) > 0 ? formatGs(tx.montoGastosAdmin) : '—'}</td>
+                      <td className="px-3 py-2 font-bold">{formatGs(Math.abs(Number(tx.montoTotal)))}</td>
+                      <td className="px-3 py-2">
+                        {tx.estado === 'APLICADO' && !esReverso
+                          ? <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium">Aplicado</span>
+                          : tx.estado === 'REVERSADO'
+                          ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-medium">Reversado</span>
+                          : <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full text-xs font-medium">Reverso</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        {tx.estado === 'APLICADO' && !esReverso && (
+                          <button
+                            onClick={() => { setModalReverso(tx.id); setMotivoReverso(''); }}
+                            className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 font-medium">
+                            Reversar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-gray-50 border-t border-gray-200">
+                <tr>
+                  <td colSpan={7} className="px-3 py-2 text-xs text-gray-500 font-medium">Total cobrado (aplicados)</td>
+                  <td className="px-3 py-2 font-bold text-green-700 text-xs">
+                    {formatGs(transacciones
+                      .filter((t: any) => t.estado === 'APLICADO' && !t.esReverso && t.tipo !== 'REVERSO')
+                      .reduce((s: number, t: any) => s + Number(t.montoTotal), 0))}
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Cargos de la operación */}
+      {cargos.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+            Cargos de la operación ({cargos.length})
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50">
+                <tr>{['Descripción','Categoría','Monto','Estado','Observación',''].map(h => (
+                  <th key={h} className="px-3 py-2 text-left text-gray-500 font-semibold uppercase">{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {cargos.map((c: any) => {
+                  const catColor: Record<string,string> = {
+                    INTERES: 'bg-blue-100 text-blue-700', MORA: 'bg-orange-100 text-orange-700',
+                    GASTO_ADMIN: 'bg-purple-100 text-purple-700', PRORROGA: 'bg-yellow-100 text-yellow-700',
+                    SEGURO: 'bg-teal-100 text-teal-700', OTRO: 'bg-gray-100 text-gray-600',
+                  };
+                  return (
+                    <tr key={c.id}>
+                      <td className="px-3 py-2 font-medium">{c.descripcion}</td>
+                      <td className="px-3 py-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${catColor[c.categoria] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {c.categoria}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 font-medium">{formatGs(c.montoCalculado)}</td>
+                      <td className="px-3 py-2">
+                        {c.estado === 'PENDIENTE'
+                          ? <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs font-medium">Pendiente</span>
+                          : c.estado === 'COBRADO'
+                          ? <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium">Cobrado</span>
+                          : <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-medium">Exonerado</span>}
+                      </td>
+                      <td className="px-3 py-2 text-gray-400 max-w-xs truncate">
+                        {c.estado === 'EXONERADO' && c.motivoExoneracion
+                          ? <span className="italic">{c.motivoExoneracion}</span>
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2">
+                        {c.estado === 'PENDIENTE' && (
+                          <button
+                            onClick={() => { setModalExonerar(c.id); setMotivoExonerar(''); }}
+                            className="px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+                            Exonerar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Fichas de análisis — solo en Descuento de Cheque */}
       {op.tipoOperacion === 'DESCUENTO_CHEQUE' && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
@@ -785,6 +953,64 @@ export default function OperacionDetalle() {
         <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-3 ${toastCobro.includes('Error') || toastCobro.includes('error') ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
           {toastCobro}
           <button onClick={() => setToastCobro('')} className="ml-2 opacity-70 hover:opacity-100 text-lg font-bold">×</button>
+        </div>
+      )}
+
+      {/* Modal Reverso */}
+      {modalReverso && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">Reversar transacción</h2>
+              <p className="text-sm text-gray-500 mt-1">Esta acción crea un registro inverso. No puede deshacerse.</p>
+            </div>
+            <div className="p-6">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Motivo del reverso *</label>
+              <textarea
+                value={motivoReverso}
+                onChange={e => setMotivoReverso(e.target.value)}
+                rows={3}
+                placeholder="Describir el motivo del reverso..."
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none" />
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setModalReverso(null)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancelar</button>
+              <button onClick={handleReversar} disabled={reversando || !motivoReverso.trim()}
+                className="px-5 py-2 text-sm bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50">
+                {reversando ? 'Reversando...' : 'Confirmar reverso'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Exonerar cargo */}
+      {modalExonerar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">Exonerar cargo</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Monto: <strong>{formatGs(cargos.find((c: any) => c.id === modalExonerar)?.montoCalculado ?? 0)}</strong>
+              </p>
+            </div>
+            <div className="p-6">
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Motivo *</label>
+              <textarea
+                value={motivoExonerar}
+                onChange={e => setMotivoExonerar(e.target.value)}
+                rows={3}
+                placeholder="Ej: cliente VIP, acuerdo de pago..."
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setModalExonerar(null)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancelar</button>
+              <button onClick={handleExonerar} disabled={exonerando || !motivoExonerar.trim()}
+                className="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
+                {exonerando ? 'Exonerando...' : 'Confirmar exoneración'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
