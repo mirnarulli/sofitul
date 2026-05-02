@@ -4,12 +4,14 @@ import { Plus, Search, Download } from 'lucide-react';
 import { operacionesApi } from '../../services/operacionesApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
+import { Toast } from '../../components/ui/Toast';
 
 export default function Operaciones() {
   const [data,       setData]       = useState<any[]>([]);
   const [total,      setTotal]      = useState(0);
   const [loading,    setLoading]    = useState(true);
   const [exportando, setExportando] = useState(false);
+  const [toast,      setToast]      = useState('');
   const [filtros, setFiltros] = useState({ estado: '', tipo: '', q: '' });
 
   const handleExport = async () => {
@@ -25,6 +27,7 @@ export default function Operaciones() {
       a.download = `operaciones-${new Date().toISOString().split('T')[0]}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
+      setToast('Archivo descargado correctamente');
     } catch {
       // silencioso — el usuario verá que no se descargó
     } finally {
@@ -138,6 +141,8 @@ export default function Operaciones() {
           </div>
         )}
       </div>
+
+      {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>
   );
 }

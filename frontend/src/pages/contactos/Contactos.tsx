@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Plus, Search, Building2, User, Download } from 'lucide-react';
 import { contactosApi } from '../../services/contactosApi';
 import { formatDate } from '../../utils/formatters';
+import { Toast } from '../../components/ui/Toast';
 
 export default function Contactos() {
   const { pathname } = useLocation();
@@ -11,6 +12,7 @@ export default function Contactos() {
   const [data,       setData]       = useState<any[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [exportando, setExportando] = useState(false);
+  const [toast,      setToast]      = useState('');
   const [q,          setQ]          = useState('');
 
   const handleExport = async () => {
@@ -23,6 +25,7 @@ export default function Contactos() {
       a.download = `contactos-${new Date().toISOString().split('T')[0]}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
+      setToast('Archivo descargado correctamente');
     } catch { /* silencioso */ }
     finally { setExportando(false); }
   };
@@ -132,6 +135,8 @@ export default function Contactos() {
           </div>
         )}
       </div>
+
+      {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>
   );
 }

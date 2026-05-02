@@ -4,12 +4,14 @@ import { Search, Download } from 'lucide-react';
 import { cobranzasApi } from '../../services/operacionesApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
+import { Toast } from '../../components/ui/Toast';
 
 export default function Cobranzas() {
   const [data, setData] = useState<any[]>([]);
   const [resumen, setResumen] = useState<any>(null);
   const [loading,    setLoading]    = useState(true);
   const [exportando, setExportando] = useState(false);
+  const [toast,      setToast]      = useState('');
   const [filtros, setFiltros] = useState({ estado: '', q: '' });
 
   const handleExport = async () => {
@@ -22,6 +24,7 @@ export default function Cobranzas() {
       a.download = `cobranzas-${new Date().toISOString().split('T')[0]}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
+      setToast('Archivo descargado correctamente');
     } catch { /* silencioso */ }
     finally { setExportando(false); }
   };
@@ -134,6 +137,8 @@ export default function Cobranzas() {
           </div>
         )}
       </div>
+
+      {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>
   );
 }

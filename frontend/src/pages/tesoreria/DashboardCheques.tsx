@@ -7,6 +7,7 @@ import {
 import { inventarioApi } from '../../services/operacionesApi';
 import { KpiCard } from '../../components/ui/KpiCard';
 import { BarH  } from '../../components/ui/BarH';
+import { Toast } from '../../components/ui/Toast';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const fGs = (v: unknown) => {
@@ -111,11 +112,13 @@ function TablaCheques({ rows, tipo }: { rows: ChequeRow[]; tipo: 'proximos' | 'v
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardCheques() {
-  const [data,       setData]       = useState<Record<string, unknown> | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [exportando, setExportando] = useState(false);
-  const [ts,         setTs]         = useState(Date.now());
-  const [tab,        setTab]        = useState<'proximos' | 'vencidos'>('proximos');
+  const [data,        setData]        = useState<Record<string, unknown> | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [exportando,  setExportando]  = useState(false);
+  const [ts,          setTs]          = useState(Date.now());
+  const [tab,         setTab]         = useState<'proximos' | 'vencidos'>('proximos');
+  const [filterBanco, setFilterBanco] = useState('');
+  const [toast,       setToast]       = useState('');
 
   const handleExport = async () => {
     setExportando(true);
@@ -127,6 +130,7 @@ export default function DashboardCheques() {
       a.download = `cheques-${new Date().toISOString().split('T')[0]}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
+      setToast('Archivo descargado correctamente');
     } catch { /* silencioso */ }
     finally { setExportando(false); }
   };
@@ -158,6 +162,11 @@ export default function DashboardCheques() {
 
   const maxBanco  = Math.max(...porBanco.map(b => Number(b.monto ?? 0)), 1);
   const maxEstado = Math.max(...porEstado.map(e => Number(e.monto ?? 0)), 1);
+
+  // Lista de bancos únicos para el filtro
+  const bancosDisponibles = Array.from(new Set([...proximos, ...vencidos].map(r => String(r.banco ?? '')).filter(Boolean))).sort();
+  const proximosFiltrados = filterBanco ? proximos.filter(r => String(r.banco ?? '') === filterBanco) : proximos;
+  const vencidosFiltrados  = filterBanco ? vencidos.filter(r => String(r.banco ?? '') === filterBanco)  : vencidos;
 
   return (
     <div className="p-5 max-w-[1400px] mx-auto space-y-6">
@@ -282,8 +291,8 @@ export default function DashboardCheques() {
       <div className={`bg-white rounded-2xl border shadow-sm p-6 ${
         tab === 'vencidos' && vencidos.length > 0 ? 'border-red-200' : 'border-amber-200'
       }`}>
-        {/* Tabs */}
-        <div className="flex items-center gap-4 mb-5">
+        {/* Tabs + filtro banco */}
+        <div className="flex flex-wrap items-center gap-4 mb-5">
           <button
             onClick={() => setTab('proximos')}
             className={`flex items-center gap-2 text-sm font-semibold pb-1 border-b-2 transition-colors ${
@@ -294,9 +303,9 @@ export default function DashboardCheques() {
           >
             <Clock size={15} />
             Próximos 30 días
-            {proximos.length > 0 && (
+            {proximosFiltrados.length > 0 && (
               <span className="bg-amber-100 text-amber-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
-                {proximos.length}
+                {proximosFiltrados.length}
               </span>
             )}
           </button>
@@ -310,21 +319,35 @@ export default function DashboardCheques() {
           >
             <FileWarning size={15} />
             Vencidos sin cobrar
-            {vencidos.length > 0 && (
+            {vencidosFiltrados.length > 0 && (
               <span className="bg-red-100 text-red-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
-                {vencidos.length}
+                {vencidosFiltrados.length}
               </span>
             )}
           </button>
+
+          {/* Filtro banco */}
+          {bancosDisponibles.length > 0 && (
+            <select
+              value={filterBanco}
+              onChange={e => setFilterBanco(e.target.value)}
+              className="ml-auto text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+            >
+              <option value="">Todos los bancos</option>
+              {bancosDisponibles.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          )}
         </div>
 
-        <TablaCheques rows={tab === 'proximos' ? proximos : vencidos} tipo={tab} />
+        <TablaCheques rows={tab === 'proximos' ? proximosFiltrados : vencidosFiltrados} tipo={tab} />
       </div>
 
       {/* Footer */}
       <div className="text-center text-xs text-gray-300 pb-2">
         SOFITUL · Dashboard Cheques · Datos en tiempo real
       </div>
+
+      {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>
   );
 }

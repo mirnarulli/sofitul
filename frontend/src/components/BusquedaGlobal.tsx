@@ -72,6 +72,19 @@ export default function BusquedaGlobal() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Ctrl+K global shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
   const goTo = (url: string) => {
     setOpen(false);
     setQuery('');
@@ -107,7 +120,7 @@ export default function BusquedaGlobal() {
           onChange={e => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar operación, cliente..."
+          placeholder="Buscar…  Ctrl+K"
           className="flex-1 text-sm bg-transparent outline-none placeholder-gray-400 text-gray-800 min-w-0"
         />
         {loading && (
