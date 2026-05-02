@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatGs, calcularDias, formatDate } from '../../utils/formatters';
-import { contactosApi } from '../../services/contactosApi';
+import { contactosApi, panelGlobalApi } from '../../services/contactosApi';
 import { operacionesApi } from '../../services/operacionesApi';
 import { DocHeader, DocFooter } from '../../components/DocHeader';
 import DocBarcode from '../../components/DocBarcode';
@@ -76,20 +76,67 @@ export default function SimuladorDescuento() {
   // Cheques (max 10)
   const [cheques, setCheques] = useState<Cheque[]>([{ ...CHEQUE_VACIO }]);
 
+  // Librador búsqueda por cheque (arrays paralelos a cheques)
+  const [libradorBusqs,   setLibradorBusqs]   = useState<string[]>(['']);
+  const [libradorOptsAll, setLibradorOptsAll] = useState<ContactoOption[][]>([[]]);
+
+  // Bancos (Panel Global)
+  const [bancos, setBancos] = useState<any[]>([]);
+
   // Resumen inputs
   const [comision, setComision] = useState('');
 
   // Acreditación
-  const [bancoAcred,   setBancoAcred]   = useState('');
-  const [cuentaAcred,  setCuentaAcred]  = useState('');
-  const [titularAcred, setTitularAcred] = useState('');
-  const [aliasAcred,   setAliasAcred]   = useState('');
+  const [bancoAcred,        setBancoAcred]        = useState('');
+  const [cuentaAcred,       setCuentaAcred]       = useState('');
+  const [titularAcred,      setTitularAcred]      = useState('');
+  const [aliasAcred,        setAliasAcred]        = useState('');
+  const [cuentasDisponibles, setCuentasDisponibles] = useState<any[]>([]);
+  const [cuentaSelIdx,      setCuentaSelIdx]      = useState<number>(-1);
 
   // Guardar operación
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // ── Búsqueda de contactos ─────────────────────────────────────────────
+  // ── Cargar bancos al montar ───────────────────────────────────────────
+  useEffect(() => {
+    panelGlobalApi.getBancosActivos().then(setBancos).catch(() => {});
+  }, []);
+
+  // ── Cargar cuentas de acreditación al seleccionar cliente ────────────
+  useEffect(() => {
+    if (!clienteSel) {
+      setCuentasDisponibles([]);
+      setCuentaSelIdx(-1);
+      return;
+    }
+    contactosApi.getCuentasTransferencia(clienteSel.tipo, clienteSel.id)
+      .then((cuentas: any[]) => {
+        const activas = cuentas.filter((c: any) => c.activo !== false);
+        setCuentasDisponibles(activas);
+        if (activas.length >= 1) {
+          // Pre-seleccionar la principal o la primera
+          const idx = activas.findIndex((c: any) => c.esPrincipal) >= 0
+            ? activas.findIndex((c: any) => c.esPrincipal)
+            : 0;
+          setCuentaSelIdx(idx);
+        }
+      })
+      .catch(() => {});
+  }, [clienteSel]);
+
+  // ── Llenar campos de acreditación cuando se elige cuenta ─────────────
+  useEffect(() => {
+    if (cuentaSelIdx >= 0 && cuentasDisponibles[cuentaSelIdx]) {
+      const c = cuentasDisponibles[cuentaSelIdx];
+      setBancoAcred(c.banco || '');
+      setCuentaAcred(c.numeroCuenta || '');
+      setTitularAcred(c.titular || '');
+      setAliasAcred(c.alias || '');
+    }
+  }, [cuentaSelIdx, cuentasDisponibles]);
+
+  // ── Búsqueda de contactos (cliente / firmante) ────────────────────────
 
   const buscarContacto = useCallback(async (q: string, esFirmante = false) => {
     if (q.length < 2) return;
@@ -115,6 +162,44 @@ export default function SimuladorDescuento() {
     } catch { /* ignorar */ }
   }, []);
 
+  // ── Búsqueda de librador por cheque (PF + PJ) ────────────────────────
+
+  const buscarLibrador = useCallback(async (i: number, q: string) => {
+    setLibradorBusqs(prev => prev.map((v, idx) => idx === i ? q : v));
+    // Actualizar también el campo librador del cheque (fallback texto libre)
+    setCheques(prev => prev.map((c, idx) => idx === i ? { ...c, librador: q } : c));
+    if (q.length < 2) {
+      setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? [] : v));
+      return;
+    }
+    try {
+      const [pfs, pjs] = await Promise.all([
+        contactosApi.getPersonasFisicas(q),
+        contactosApi.getPersonasJuridicas(q),
+      ]);
+      const opts: ContactoOption[] = [
+        ...pfs.map((p: any) => ({
+          id: p.id, tipo: 'pf' as const,
+          doc: p.numeroDoc,
+          label: `${p.primerNombre} ${p.primerApellido} · CI ${p.numeroDoc}`,
+        })),
+        ...pjs.map((p: any) => ({
+          id: p.id, tipo: 'pj' as const,
+          doc: p.ruc,
+          label: `${p.razonSocial} · RUC ${p.ruc}`,
+        })),
+      ];
+      setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? opts : v));
+    } catch { /* ignorar */ }
+  }, []);
+
+  const seleccionarLibrador = (i: number, o: ContactoOption) => {
+    const nombre = o.label.split(' · ')[0];
+    setCheques(prev => prev.map((c, idx) => idx === i ? { ...c, librador: nombre, rucLibrador: o.doc } : c));
+    setLibradorBusqs(prev => prev.map((v, idx) => idx === i ? o.label : v));
+    setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? [] : v));
+  };
+
   // ── Cheques helpers ───────────────────────────────────────────────────
 
   const updateCheque = (i: number, field: keyof Cheque, value: string) => {
@@ -122,11 +207,19 @@ export default function SimuladorDescuento() {
   };
 
   const agregarCheque = () => {
-    if (cheques.length < 10) setCheques(prev => [...prev, { ...CHEQUE_VACIO }]);
+    if (cheques.length < 10) {
+      setCheques(prev => [...prev, { ...CHEQUE_VACIO }]);
+      setLibradorBusqs(prev => [...prev, '']);
+      setLibradorOptsAll(prev => [...prev, []]);
+    }
   };
 
   const quitarCheque = (i: number) => {
-    if (cheques.length > 1) setCheques(prev => prev.filter((_, idx) => idx !== i));
+    if (cheques.length > 1) {
+      setCheques(prev => prev.filter((_, idx) => idx !== i));
+      setLibradorBusqs(prev => prev.filter((_, idx) => idx !== i));
+      setLibradorOptsAll(prev => prev.filter((_, idx) => idx !== i));
+    }
   };
 
   // ── Cálculos ──────────────────────────────────────────────────────────
@@ -137,6 +230,20 @@ export default function SimuladorDescuento() {
   const comisionNum   = parseFloat(comision.replace(/\./g, '').replace(',', '.')) || 0;
   const netoDesembolsar = totalCheques - totalIntereses - comisionNum;
   const nroCheques    = cheques.filter(c => parseFloat(c.monto) > 0).length;
+
+  // ── Validación de vencimiento (límite legal 180 días en PY) ──────────
+  const maxVencDate = (() => {
+    const d = new Date(fechaOperacion + 'T00:00:00');
+    d.setDate(d.getDate() + 180);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const vencStatus = (venc: string): '' | 'ok' | 'pasada' | 'excede180' => {
+    if (!venc) return '';
+    if (venc < fechaOperacion) return 'pasada';
+    if (venc > maxVencDate)    return 'excede180';
+    return 'ok';
+  };
 
   // ── Aplicar tasa global ───────────────────────────────────────────────
   const [tasaGlobal, setTasaGlobal] = useState('');
@@ -473,52 +580,127 @@ export default function SimuladorDescuento() {
               </tr>
             </thead>
             <tbody>
-              {cheques.map((c, i) => (
-                <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-3 py-1.5 text-gray-400 text-xs">{i + 1}</td>
-                  <td className="px-1 py-1">
-                    <input value={c.banco} onChange={e => updateCheque(i, 'banco', e.target.value)}
-                      placeholder="Banco..."
-                      className="w-full border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
-                  </td>
-                  <td className="px-1 py-1">
-                    <input value={c.librador} onChange={e => updateCheque(i, 'librador', e.target.value)}
-                      placeholder="Nombre librador..."
-                      className="w-full border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
-                  </td>
-                  <td className="px-1 py-1">
-                    <input value={c.rucLibrador} onChange={e => updateCheque(i, 'rucLibrador', e.target.value)}
-                      placeholder="RUC / CI"
-                      className="w-28 border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
-                  </td>
-                  <td className="px-1 py-1">
-                    <input value={c.nroCheque} onChange={e => updateCheque(i, 'nroCheque', e.target.value)}
-                      placeholder="N° cheque"
-                      className="w-28 border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
-                  </td>
-                  <td className="px-1 py-1">
-                    <input type="date" value={c.vencimiento} onChange={e => updateCheque(i, 'vencimiento', e.target.value)}
-                      className="w-36 border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
-                  </td>
-                  <td className="px-1 py-1">
-                    <input value={c.monto} onChange={e => updateCheque(i, 'monto', e.target.value)}
-                      placeholder="0"
-                      className="w-32 border-0 bg-transparent px-2 py-1 text-sm text-right font-mono focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
-                  </td>
-                  <td className="px-1 py-1">
-                    <input type="number" value={c.tasaMensual} onChange={e => updateCheque(i, 'tasaMensual', e.target.value)}
-                      min="0" max="100" step="0.5" placeholder="0"
-                      className="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-center font-medium text-blue-700 focus:ring-2 focus:ring-blue-500" />
-                  </td>
-                  <td className="px-2 py-1">
-                    <button onClick={() => quitarCheque(i)} disabled={cheques.length === 1}
-                      className="text-gray-300 hover:text-red-400 disabled:opacity-0 text-lg leading-none">×</button>
-                  </td>
-                </tr>
-              ))}
+              {cheques.map((c, i) => {
+                const vs = vencStatus(c.vencimiento);
+                const vencInvalido = vs === 'pasada' || vs === 'excede180';
+                return (
+                  <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 align-top">
+                    <td className="px-3 py-2 text-gray-400 text-xs pt-3">{i + 1}</td>
+
+                    {/* Banco — dropdown desde Panel Global */}
+                    <td className="px-1 py-1">
+                      <select
+                        value={c.banco}
+                        onChange={e => updateCheque(i, 'banco', e.target.value)}
+                        className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">Banco...</option>
+                        {bancos.map((b: any) => (
+                          <option key={b.id} value={b.nombre}>{b.nombre}</option>
+                        ))}
+                      </select>
+                    </td>
+
+                    {/* Librador — búsqueda con autocompletar (garante del cheque) */}
+                    <td className="px-1 py-1 relative">
+                      <input
+                        value={libradorBusqs[i] ?? c.librador}
+                        onChange={e => buscarLibrador(i, e.target.value)}
+                        placeholder="Buscar librador (CI/RUC)..."
+                        className="w-full border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded"
+                      />
+                      {(libradorOptsAll[i] || []).length > 0 && (
+                        <div className="absolute z-30 left-0 min-w-[260px] bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-44 overflow-y-auto">
+                          {(libradorOptsAll[i] || []).map((o: ContactoOption) => (
+                            <button
+                              key={o.id}
+                              onClick={() => seleccionarLibrador(i, o)}
+                              className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                            >
+                              <span className={`inline-block text-xs px-1 py-0.5 rounded mr-1.5 font-medium ${o.tipo === 'pf' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                {o.tipo === 'pf' ? 'PF' : 'PJ'}
+                              </span>
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* RUC/CI Librador — se rellena al seleccionar, editable */}
+                    <td className="px-1 py-1">
+                      <input
+                        value={c.rucLibrador}
+                        onChange={e => updateCheque(i, 'rucLibrador', e.target.value)}
+                        placeholder="RUC / CI"
+                        className="w-28 border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded"
+                      />
+                    </td>
+
+                    {/* N° Cheque */}
+                    <td className="px-1 py-1">
+                      <input value={c.nroCheque} onChange={e => updateCheque(i, 'nroCheque', e.target.value)}
+                        placeholder="N° cheque"
+                        className="w-28 border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
+                    </td>
+
+                    {/* Vencimiento — con validación 180 días */}
+                    <td className="px-1 py-1">
+                      <input
+                        type="date"
+                        value={c.vencimiento}
+                        onChange={e => updateCheque(i, 'vencimiento', e.target.value)}
+                        min={fechaOperacion}
+                        className={`w-36 px-2 py-1 text-sm rounded transition-colors ${
+                          vencInvalido
+                            ? 'border border-red-400 bg-red-50 text-red-700'
+                            : 'border-0 bg-transparent focus:bg-white focus:border focus:border-blue-300'
+                        }`}
+                      />
+                      {vs === 'pasada' && (
+                        <div className="text-xs text-red-500 px-1 mt-0.5 whitespace-nowrap">⚠ Fecha pasada</div>
+                      )}
+                      {vs === 'excede180' && (
+                        <div className="text-xs text-red-500 px-1 mt-0.5 whitespace-nowrap">⚠ Supera 180 días (límite legal PY)</div>
+                      )}
+                    </td>
+
+                    {/* Monto */}
+                    <td className="px-1 py-1">
+                      <input value={c.monto} onChange={e => updateCheque(i, 'monto', e.target.value)}
+                        placeholder="0"
+                        className="w-32 border-0 bg-transparent px-2 py-1 text-sm text-right font-mono focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
+                    </td>
+
+                    {/* Tasa */}
+                    <td className="px-1 py-1">
+                      <input type="number" value={c.tasaMensual} onChange={e => updateCheque(i, 'tasaMensual', e.target.value)}
+                        min="0" max="100" step="0.5" placeholder="0"
+                        className="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-center font-medium text-blue-700 focus:ring-2 focus:ring-blue-500" />
+                    </td>
+
+                    {/* Quitar */}
+                    <td className="px-2 py-1 pt-3">
+                      <button onClick={() => quitarCheque(i)} disabled={cheques.length === 1}
+                        className="text-gray-300 hover:text-red-400 disabled:opacity-0 text-lg leading-none">×</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {/* Advertencia general si algún cheque tiene fecha inválida */}
+        {cheques.some(c => vencStatus(c.vencimiento) === 'excede180') && (
+          <div className="mt-3 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-start gap-2">
+            <span className="text-base leading-none">⚠️</span>
+            <span>
+              <strong>Límite legal de cheques en Paraguay: 180 días.</strong>{' '}
+              Los cheques marcados en rojo superan este plazo y podrían no ser válidos al momento del cobro.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Tabla de liquidación ── */}
@@ -577,7 +759,7 @@ export default function SimuladorDescuento() {
         </div>
       )}
 
-      {/* ── Resumen de liquidación ── */}
+      {/* ── Resumen + Acreditación ── */}
       <div className="grid grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
@@ -613,9 +795,48 @@ export default function SimuladorDescuento() {
 
         {/* ── Datos de acreditación ── */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
-            6 · Datos para Acreditación de Fondos
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+              6 · Datos para Acreditación de Fondos
+            </h2>
+            {clienteSel && cuentasDisponibles.length === 0 && (
+              <span className="text-xs text-gray-400 italic">Sin cuentas registradas</span>
+            )}
+          </div>
+
+          {/* Selector de cuenta si hay múltiples */}
+          {cuentasDisponibles.length > 1 && (
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Cuentas registradas del cliente ({cuentasDisponibles.length})
+              </label>
+              <select
+                value={cuentaSelIdx}
+                onChange={e => setCuentaSelIdx(Number(e.target.value))}
+                className="w-full border border-blue-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50"
+              >
+                <option value={-1}>— Seleccionar cuenta —</option>
+                {cuentasDisponibles.map((ct: any, idx: number) => (
+                  <option key={ct.id} value={idx}>
+                    {[ct.banco, ct.numeroCuenta || ct.alias, ct.titular].filter(Boolean).join(' · ')}
+                    {ct.esPrincipal ? ' ★' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Badge cuenta pre-cargada (1 sola cuenta) */}
+          {cuentasDisponibles.length === 1 && (
+            <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700 flex items-center justify-between">
+              <span>✓ Datos pre-cargados del perfil del cliente</span>
+              <button
+                onClick={() => { setBancoAcred(''); setCuentaAcred(''); setTitularAcred(''); setAliasAcred(''); setCuentasDisponibles([]); setCuentaSelIdx(-1); }}
+                className="text-gray-400 hover:text-red-500 ml-2"
+              >✕ Limpiar</button>
+            </div>
+          )}
+
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>

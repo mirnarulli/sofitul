@@ -25,6 +25,10 @@ export const contactosApi = {
   // Empresas donde esta PF figura como rep. legal
   getEmpresasVinculadas: (id: string) =>
     api.get(`/contactos/pf/${id}/vinculadas`).then(r => r.data),
+
+  // Cuentas bancarias registradas para un contacto
+  getCuentasTransferencia: (tipo: 'pf' | 'pj', id: string) =>
+    api.get('/cuentas-transferencia', { params: { contactoTipo: tipo, contactoId: id } }).then(r => r.data),
 };
 
 export const panelGlobalApi = {
