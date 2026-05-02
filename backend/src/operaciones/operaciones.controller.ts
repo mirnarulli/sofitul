@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req,
-         UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+         UseInterceptors, UploadedFile, BadRequestException, StreamableFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
@@ -66,6 +66,21 @@ export class OperacionesController {
       contactoId: contactoId || undefined,
       page:  page  ? +page  : 1,
       limit: limit ? +limit : 50,
+    });
+  }
+
+  // ── Exportar Excel ────────────────────────────────────────────────────────
+  @Get('export')
+  async exportExcel(
+    @Query('estado')     estado?: string,
+    @Query('tipo')       tipo?: string,
+    @Query('contactoId') contactoId?: string,
+  ) {
+    const buf   = await this.svc.exportToExcel({ estado, tipo, contactoId });
+    const fecha = new Date().toISOString().split('T')[0];
+    return new StreamableFile(buf, {
+      type:        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="operaciones-${fecha}.xlsx"`,
     });
   }
 

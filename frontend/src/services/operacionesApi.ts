@@ -1,6 +1,8 @@
 import api from './api';
 
 export const operacionesApi = {
+  exportExcel: (params?: { estado?: string; tipo?: string; contactoId?: string }) =>
+    api.get('/operaciones/export', { params, responseType: 'blob' }).then(r => r.data as Blob),
   getAll:            (params?: any)        => api.get('/operaciones', { params }).then(r => r.data),
   getById:           (id: string)          => api.get(`/operaciones/${id}`).then(r => r.data),
   create:            (body: any)           => api.post('/operaciones', body).then(r => r.data),

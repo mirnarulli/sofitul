@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { utils as xlsxUtils, write as xlsxWrite } from 'xlsx';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { In, Repository, DataSource } from 'typeorm';
 import { ESTADO_OP, ESTADO_CUOTA } from '../common/constants/estado-operacion.constants';
@@ -353,5 +354,44 @@ export class OperacionesService {
       where: { id: In(hastaIds) },
       order: { orden: 'ASC' },
     });
+  }
+
+  // ── Exportación Excel ─────────────────────────────────────────────────────
+  async exportToExcel(filtros: { estado?: string; tipo?: string; contactoId?: string } = {}): Promise<Buffer> {
+    const qb = this.operRepo.createQueryBuilder('o').orderBy('o.fechaOperacion', 'DESC');
+    if (filtros.estado)     qb.andWhere('o.estado = :estado',     { estado: filtros.estado });
+    if (filtros.tipo)       qb.andWhere('o.tipoOperacion = :tipo', { tipo: filtros.tipo });
+    if (filtros.contactoId) qb.andWhere('o.contactoId = :cid',    { cid: filtros.contactoId });
+
+    const ops = await qb.getMany();
+
+    const filas = ops.map(o => ({
+      'N° Operación':     o.nroOperacion,
+      'Tipo':             o.tipoOperacion === 'DESCUENTO_CHEQUE' ? 'Descuento Cheque' : 'Préstamo Consumo',
+      'Estado':           o.estado,
+      'Cliente':          o.contactoNombre,
+      'Documento':        o.contactoDoc,
+      'Fecha Op.':        o.fechaOperacion ?? '',
+      'Vencimiento':      o.fechaVencimiento ?? '',
+      'Capital (Gs.)':    Number(o.capitalInvertido ?? 0),
+      'Interés (Gs.)':    Number(o.interesTotal ?? 0),
+      'Monto Total (Gs.)': Number(o.montoTotal ?? 0),
+      'Neto Desembolso':  Number(o.netoDesembolsar ?? 0),
+      'Ganancia Neta':    Number(o.gananciaNeta ?? 0),
+      'Tasa Mensual %':   Number(o.tasaMensual ?? 0),
+      'Días Plazo':       Number(o.diasPlazo ?? 0),
+      'Canal':            o.canal ?? '',
+    }));
+
+    const ws = xlsxUtils.json_to_sheet(filas);
+    ws['!cols'] = [
+      { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 32 }, { wch: 16 },
+      { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 18 },
+      { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 14 },
+    ];
+
+    const wb = xlsxUtils.book_new();
+    xlsxUtils.book_append_sheet(wb, ws, 'Operaciones');
+    return xlsxWrite(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 }

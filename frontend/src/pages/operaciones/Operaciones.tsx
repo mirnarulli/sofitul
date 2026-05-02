@@ -1,15 +1,36 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search, Download } from 'lucide-react';
 import { operacionesApi } from '../../services/operacionesApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
 
 export default function Operaciones() {
-  const [data,   setData]   = useState<any[]>([]);
-  const [total,  setTotal]  = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [data,       setData]       = useState<any[]>([]);
+  const [total,      setTotal]      = useState(0);
+  const [loading,    setLoading]    = useState(true);
+  const [exportando, setExportando] = useState(false);
   const [filtros, setFiltros] = useState({ estado: '', tipo: '', q: '' });
+
+  const handleExport = async () => {
+    setExportando(true);
+    try {
+      const blob = await operacionesApi.exportExcel({
+        estado: filtros.estado || undefined,
+        tipo:   filtros.tipo   || undefined,
+      });
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href     = url;
+      a.download = `operaciones-${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silencioso — el usuario verá que no se descargó
+    } finally {
+      setExportando(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -33,10 +54,16 @@ export default function Operaciones() {
           <h1 className="text-2xl font-bold text-gray-900">Operaciones</h1>
           <p className="text-sm text-gray-500">{total} operaciones totales</p>
         </div>
-        <Link to="/operaciones/nueva"
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium">
-          <Plus size={16} /> Nueva Operación
-        </Link>
+        <div className="flex items-center gap-2">
+          <button onClick={handleExport} disabled={exportando}
+            className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-50">
+            <Download size={16} /> {exportando ? 'Exportando...' : 'Exportar Excel'}
+          </button>
+          <Link to="/operaciones/nueva"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium">
+            <Plus size={16} /> Nueva Operación
+          </Link>
+        </div>
       </div>
 
       {/* Filtros */}
