@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Check, Banknote, X, Loader2 } from 'lucide-react';
+import { AlertTriangle, Check, Banknote, Loader2 } from 'lucide-react';
+import Modal from '../../components/Modal';
 import { tesoreriaApi } from '../../services/operacionesApi';
 import { panelGlobalApi } from '../../services/contactosApi';
 import StatusBadge from '../../components/StatusBadge';
@@ -78,85 +79,75 @@ function ModalCobro({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="flex items-start justify-between mb-5">
+    <Modal
+      title="Registrar Cobro"
+      subtitle={`${cheque.nro_operacion} · ${cheque.contacto_nombre}`}
+      onClose={onClose}
+    >
+      {/* Info del cheque */}
+      <div className={`rounded-xl p-4 mb-5 text-sm ${
+        dias < 0  ? 'bg-red-50 border border-red-200' :
+        dias === 0 ? 'bg-amber-50 border border-amber-200' : 'bg-blue-50 border border-blue-100'
+      }`}>
+        <div className="grid grid-cols-2 gap-2">
+          <div><p className="text-xs text-gray-500">Banco / Cheque</p><p className="font-semibold">{cheque.banco} #{cheque.nro_cheque}</p></div>
+          <div><p className="text-xs text-gray-500">Librador</p><p className="font-medium">{cheque.librador}</p></div>
+          <div><p className="text-xs text-gray-500">Valor</p><p className="font-bold">{formatGs(cheque.monto)}</p></div>
           <div>
-            <h3 className="text-base font-bold text-gray-900">Registrar Cobro</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{cheque.nro_operacion} · {cheque.contacto_nombre}</p>
+            <p className="text-xs text-gray-500">Vencimiento</p>
+            <p className={`font-medium ${dias < 0 ? 'text-red-700' : ''}`}>
+              {String(cheque.fecha_vencimiento).slice(0, 10)}
+              {dias < 0  && <span className="ml-1 text-red-600 font-bold">({Math.abs(dias)}d vencido)</span>}
+              {dias === 0 && <span className="ml-1 text-amber-600 font-bold">(hoy)</span>}
+            </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Info del cheque */}
-        <div className={`rounded-xl p-4 mb-5 text-sm ${
-          dias < 0 ? 'bg-red-50 border border-red-200' :
-          dias === 0 ? 'bg-amber-50 border border-amber-200' : 'bg-blue-50 border border-blue-100'
-        }`}>
-          <div className="grid grid-cols-2 gap-2">
-            <div><p className="text-xs text-gray-500">Banco / Cheque</p><p className="font-semibold">{cheque.banco} #{cheque.nro_cheque}</p></div>
-            <div><p className="text-xs text-gray-500">Librador</p><p className="font-medium">{cheque.librador}</p></div>
-            <div><p className="text-xs text-gray-500">Valor</p><p className="font-bold">{formatGs(cheque.monto)}</p></div>
-            <div><p className="text-xs text-gray-500">Vencimiento</p>
-              <p className={`font-medium ${dias < 0 ? 'text-red-700' : ''}`}>
-                {String(cheque.fecha_vencimiento).slice(0,10)}
-                {dias < 0 && <span className="ml-1 text-red-600 font-bold">({Math.abs(dias)}d vencido)</span>}
-                {dias === 0 && <span className="ml-1 text-amber-600 font-bold">(hoy)</span>}
-              </p>
-            </div>
-            <div><p className="text-xs text-gray-500">Canal</p>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                esTeDescuento ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'
-              }`}>{cheque.canal ?? 'Particular'}</span>
-            </div>
-            <div><p className="text-xs text-gray-500">Interés Generado</p><p className="font-semibold text-emerald-700">+{formatGs(cheque.interes)}</p></div>
-          </div>
-        </div>
-
-        {/* Formulario */}
-        <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de acreditación</label>
-            <input type="date" value={fechaCobro} onChange={e => setFechaCobro(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <p className="text-xs text-gray-500">Canal</p>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+              esTeDescuento ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'
+            }`}>{cheque.canal ?? 'Particular'}</span>
           </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              {esTeDescuento ? 'N° transferencia TeDescuento' : 'N° depósito / referencia'}
-            </label>
-            <input type="text" value={nroRef} onChange={e => setNroRef(e.target.value)}
-              placeholder={esTeDescuento ? 'Ej: TED-20260430-001' : 'Opcional'}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Nota (opcional)</label>
-            <textarea value={nota} onChange={e => setNota(e.target.value)} rows={2}
-              placeholder="Observaciones del cobro..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-          </div>
-        </div>
-
-        {err && <p className="text-red-600 text-xs mt-3">{err}</p>}
-
-        {/* Acciones */}
-        <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 text-sm py-2 rounded-lg hover:bg-gray-50">
-            Cancelar
-          </button>
-          <button onClick={handleCobrar} disabled={saving || !fechaCobro}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-2 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            Confirmar Cobro
-          </button>
+          <div><p className="text-xs text-gray-500">Interés Generado</p><p className="font-semibold text-emerald-700">+{formatGs(cheque.interes)}</p></div>
         </div>
       </div>
-    </div>
+
+      {/* Formulario */}
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de acreditación</label>
+          <input type="date" value={fechaCobro} onChange={e => setFechaCobro(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            {esTeDescuento ? 'N° transferencia TeDescuento' : 'N° depósito / referencia'}
+          </label>
+          <input type="text" value={nroRef} onChange={e => setNroRef(e.target.value)}
+            placeholder={esTeDescuento ? 'Ej: TED-20260430-001' : 'Opcional'}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Nota (opcional)</label>
+          <textarea value={nota} onChange={e => setNota(e.target.value)} rows={2}
+            placeholder="Observaciones del cobro..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+        </div>
+      </div>
+
+      {err && <p className="text-red-600 text-xs mt-3">{err}</p>}
+
+      {/* Acciones */}
+      <div className="flex gap-3 mt-5">
+        <button onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 text-sm py-2 rounded-lg hover:bg-gray-50">
+          Cancelar
+        </button>
+        <button onClick={handleCobrar} disabled={saving || !fechaCobro}
+          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-2 rounded-lg font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+          Confirmar Cobro
+        </button>
+      </div>
+    </Modal>
   );
 }
 

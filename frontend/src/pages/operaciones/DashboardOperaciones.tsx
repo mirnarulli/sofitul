@@ -6,6 +6,8 @@ import {
   CheckCircle2, Clock, RefreshCw,
 } from 'lucide-react';
 import api from '../../services/api';
+import { BarH } from '../../components/ui/BarH';
+import { KpiCard } from '../../components/ui/KpiCard';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 const fGs = (v: any) => {
@@ -32,16 +34,6 @@ const ESTADO_DOT: Record<string, string> = {
   MORA: 'bg-red-400', PRORROGADO: 'bg-amber-400',
   RENOVADO: 'bg-violet-400', COBRADO: 'bg-emerald-400',
 };
-
-// ── Mini bar chart horizontal (CSS-only) ─────────────────────────────────────
-function BarH({ value, max, color = 'bg-blue-500', height = 'h-5' }: { value: number; max: number; color?: string; height?: string }) {
-  const pct = max > 0 ? Math.max(2, (value / max) * 100) : 0;
-  return (
-    <div className={`w-full bg-gray-100 rounded-full overflow-hidden ${height}`}>
-      <div className={`${color} ${height} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
 
 // ── Gráfico de columnas — Capital e Interés Generado por semana ──────────────
 function GraficoSemanal({ semanas }: { semanas: any[] }) {
@@ -186,61 +178,41 @@ export default function DashboardOperaciones() {
 
       {/* ── KPI Cards ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {/* Capital en cartera */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 col-span-1">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Capital en cartera</span>
-            <div className="p-1.5 bg-blue-50 rounded-lg"><Wallet size={14} className="text-blue-600" /></div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{fGs(kpis.capital_cartera)}</p>
-          <p className="text-xs text-gray-400 mt-1">{kpis.ops_activas} operaciones activas</p>
-        </div>
-
-        {/* Valor nominal */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Valor cartera</span>
-            <div className="p-1.5 bg-indigo-50 rounded-lg"><BarChart2 size={14} className="text-indigo-600" /></div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{fGs(kpis.valor_nominal)}</p>
-          <p className="text-xs text-gray-400 mt-1">Valor nominal cheques</p>
-        </div>
-
-        {/* Interés Generado */}
-        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-sm p-5 text-white">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-emerald-100 uppercase tracking-wider">Interés Generado</span>
-            <div className="p-1.5 bg-white/20 rounded-lg"><TrendingUp size={14} className="text-white" /></div>
-          </div>
-          <p className="text-2xl font-bold">{fGs(kpis.ganancia_esperada)}</p>
-          <p className="text-xs text-emerald-100 mt-1">
-            {fGs(kpis.ganancia_realizada)} ya realizados
-          </p>
-        </div>
-
-        {/* En mora */}
-        <div className={`rounded-2xl border shadow-sm p-5 ${Number(kpis.ops_mora) > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'}`}>
-          <div className="flex items-center justify-between mb-3">
-            <span className={`text-xs font-semibold uppercase tracking-wider ${Number(kpis.ops_mora) > 0 ? 'text-red-400' : 'text-gray-400'}`}>En mora</span>
-            <div className={`p-1.5 rounded-lg ${Number(kpis.ops_mora) > 0 ? 'bg-red-100' : 'bg-gray-50'}`}>
-              <AlertTriangle size={14} className={Number(kpis.ops_mora) > 0 ? 'text-red-500' : 'text-gray-400'} />
-            </div>
-          </div>
-          <p className={`text-2xl font-bold ${Number(kpis.ops_mora) > 0 ? 'text-red-700' : 'text-gray-300'}`}>
-            {kpis.ops_mora}
-          </p>
-          <p className={`text-xs mt-1 ${Number(kpis.ops_mora) > 0 ? 'text-red-500' : 'text-gray-400'}`}>operaciones</p>
-        </div>
-
-        {/* Cobrados este mes */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hidden xl:block">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cobrado este mes</span>
-            <div className="p-1.5 bg-emerald-50 rounded-lg"><CheckCircle2 size={14} className="text-emerald-600" /></div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{fGs(kpis.capital_recuperado)}</p>
-          <p className="text-xs text-gray-400 mt-1">{kpis.cobrados_mes} operaciones cobradas</p>
-        </div>
+        <KpiCard
+          label="Capital en cartera"
+          value={fGs(kpis.capital_cartera)}
+          sub={`${kpis.ops_activas} operaciones activas`}
+          icon={<Wallet size={14} />} iconBg="bg-blue-50" iconColor="text-blue-600"
+          className="col-span-1"
+        />
+        <KpiCard
+          label="Valor cartera"
+          value={fGs(kpis.valor_nominal)}
+          sub="Valor nominal cheques"
+          icon={<BarChart2 size={14} />} iconBg="bg-indigo-50" iconColor="text-indigo-600"
+        />
+        <KpiCard
+          variant="gradient"
+          label="Interés Generado"
+          value={fGs(kpis.ganancia_esperada)}
+          sub={`${fGs(kpis.ganancia_realizada)} ya realizados`}
+          icon={<TrendingUp size={14} />}
+        />
+        <KpiCard
+          variant="alert"
+          label="En mora"
+          value={kpis.ops_mora}
+          sub="operaciones"
+          icon={<AlertTriangle size={14} />}
+          highlight={Number(kpis.ops_mora) > 0}
+        />
+        <KpiCard
+          label="Cobrado este mes"
+          value={fGs(kpis.capital_recuperado)}
+          sub={`${kpis.cobrados_mes} operaciones cobradas`}
+          icon={<CheckCircle2 size={14} />} iconBg="bg-emerald-50" iconColor="text-emerald-600"
+          className="hidden xl:block"
+        />
       </div>
 
       {/* ── Fila 2: Proyección semanal + Estados ───────────────────────── */}

@@ -10,43 +10,16 @@ import { ESTADOS_VIGENTES } from '../../utils/estados';
 import CuentasTransferencia from '../../components/CuentasTransferencia';
 import { formatDate, formatGs, diasHasta } from '../../utils/formatters';
 import StatusBadge from '../../components/StatusBadge';
+import { CalBadge, CALIFICACIONES } from '../../components/ui/CalBadge';
+import { Field, Info } from '../../components/ui/ContactField';
+import { OpsTable } from '../../components/ui/OpsTable';
+import { Pill } from '../../components/ui/Pill';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 const inputCls  = 'w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
 const selectCls = inputCls;
 
-const CALIFICACIONES = [
-  { value: 'A', label: 'A — Excelente', color: 'bg-green-100 text-green-800' },
-  { value: 'B', label: 'B — Bueno',     color: 'bg-blue-100 text-blue-800'  },
-  { value: 'C', label: 'C — Regular',   color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'D', label: 'D — Malo',      color: 'bg-red-100 text-red-800'    },
-];
-
-
-function CalBadge({ cal }: { cal?: string }) {
-  const c = CALIFICACIONES.find(q => q.value === cal);
-  if (!c) return <span className="text-gray-400 text-xs">Sin calificación</span>;
-  return <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${c.color}`}>{c.label}</span>;
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-gray-500 mb-0.5">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function Info({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div>
-      <dt className="text-xs text-gray-400">{label}</dt>
-      <dd className="text-sm text-gray-800 font-medium">{value || '—'}</dd>
-    </div>
-  );
-}
 
 // ── Beneficiarios finales table ───────────────────────────────────────────────
 
@@ -290,10 +263,8 @@ export default function ContactoPJDetalle() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Compliance</h3>
           <div className="flex gap-4">
-            {data.esPep   && <span className="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">✓ PEP</span>}
-            {!data.esPep  && <span className="px-3 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">No PEP</span>}
-            {data.esFatca && <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">✓ FATCA</span>}
-            {!data.esFatca&& <span className="px-3 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">No FATCA</span>}
+            <Pill label={data.esPep   ? '✓ PEP'   : 'No PEP'}   color={data.esPep   ? 'orange' : 'gray'} size="md" bold={!!data.esPep} />
+            <Pill label={data.esFatca ? '✓ FATCA' : 'No FATCA'} color={data.esFatca ? 'purple' : 'gray'} size="md" bold={!!data.esFatca} />
           </div>
         </div>
       </div>
@@ -503,8 +474,8 @@ export default function ContactoPJDetalle() {
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl font-bold text-gray-900">{pj.razonSocial}</h1>
               <span className="text-gray-400 text-sm">RUC {pj.ruc}</span>
-              {pj.esPep   && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded-full">PEP</span>}
-              {pj.esFatca && <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">FATCA</span>}
+              {pj.esPep   && <Pill label="PEP"   color="orange" bold />}
+              {pj.esFatca && <Pill label="FATCA" color="purple" bold />}
               {/* Calificación — inline editable */}
               {califEdit ? (
                 <span className="flex items-center gap-1">
@@ -578,34 +549,3 @@ export default function ContactoPJDetalle() {
   );
 }
 
-function OpsTable({ ops, showDias }: { ops: any[]; showDias?: boolean }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50">
-          <tr>{['N° Op.','Tipo','Monto Total','Vencimiento',showDias?'Días':'','Estado',''].map((h,i)=>(
-            <th key={i} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">{h}</th>
-          ))}</tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {ops.map((op:any) => {
-            const d = op.fechaVencimiento ? diasHasta(op.fechaVencimiento) : null;
-            return (
-              <tr key={op.id} className="hover:bg-gray-50">
-                <td className="px-3 py-2 font-mono text-xs">{op.nroOperacion}</td>
-                <td className="px-3 py-2 text-xs text-gray-600">{op.tipoOperacion==='DESCUENTO_CHEQUE'?'Dto. Cheque':'Préstamo'}</td>
-                <td className="px-3 py-2">{formatGs(op.montoTotal)}</td>
-                <td className="px-3 py-2 text-xs">{formatDate(op.fechaVencimiento)}</td>
-                {showDias && <td className="px-3 py-2">
-                  {d !== null && <span className={`text-xs font-medium ${d<=7?'text-red-600':d<=15?'text-orange-500':'text-amber-600'}`}>{d}d</span>}
-                </td>}
-                <td className="px-3 py-2"><StatusBadge estado={op.estado}/></td>
-                <td className="px-3 py-2"><Link to={`/operaciones/${op.id}`} className="text-blue-600 hover:underline text-xs">Ver</Link></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
