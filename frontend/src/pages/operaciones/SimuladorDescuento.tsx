@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatGs, calcularDias, formatDate } from '../../utils/formatters';
+import { formatGs, formatDate } from '../../utils/formatters';
 import { contactosApi, panelGlobalApi } from '../../services/contactosApi';
 import { operacionesApi } from '../../services/operacionesApi';
 import { DocHeader, DocFooter } from '../../components/DocHeader';
@@ -38,14 +38,37 @@ const CHEQUE_VACIO: Cheque = {
   nroCheque: '', vencimiento: '', monto: '', tasaMensual: '',
 };
 
+// ── Días hábiles (excluye sábado, domingo y feriados cargados) ────────────
+
+function calcDiasHabiles(from: string, to: string, feriados: Set<string>): number {
+  if (!from || !to) return 0;
+  const start = new Date(from + 'T00:00:00');
+  const end   = new Date(to   + 'T00:00:00');
+  if (end <= start) return 0;
+  let count = 0;
+  const curr = new Date(start);
+  curr.setDate(curr.getDate() + 1);           // el primer día que cuenta es el día siguiente
+  while (curr <= end) {
+    const dow      = curr.getDay();           // 0=Dom, 6=Sáb
+    const fechaStr = curr.toISOString().slice(0, 10);
+    if (dow !== 0 && dow !== 6 && !feriados.has(fechaStr)) count++;
+    curr.setDate(curr.getDate() + 1);
+  }
+  return count;
+}
+
 // ── Lógica de cálculo ──────────────────────────────────────────────────────
 
-function calcularLiquidacion(cheques: Cheque[], fechaOperacion: string): Liquidacion[] {
+function calcularLiquidacion(
+  cheques: Cheque[],
+  fechaOperacion: string,
+  calcDiasFn: (from: string, to: string) => number,
+): Liquidacion[] {
   return cheques.map(c => {
     const monto = parseFloat(c.monto.replace(/\./g, '').replace(',', '.')) || 0;
     const tasa  = parseFloat(c.tasaMensual) || 0;
     if (!monto || !c.vencimiento || !fechaOperacion) return { dias: 0, monto, interes: 0, amortizacion: monto };
-    const dias = Math.max(0, calcularDias(fechaOperacion, c.vencimiento));
+    const dias    = Math.max(0, calcDiasFn(fechaOperacion, c.vencimiento));
     const interes = Math.round(monto * (tasa / 100) * dias / 30);
     return { dias, monto, interes, amortizacion: monto - interes };
   });
@@ -77,14 +100,19 @@ export default function SimuladorDescuento() {
   const [cheques, setCheques] = useState<Cheque[]>([{ ...CHEQUE_VACIO }]);
 
   // Banco búsqueda por cheque (array paralelo)
-  const [bancoBusqs, setBancoBusqs] = useState<string[]>(['']);
+  const [bancoBusqs,     setBancoBusqs]     = useState<string[]>(['']);
+  const [activeBancoRow, setActiveBancoRow] = useState<number>(-1);   // fila con foco activo
 
   // Librador búsqueda por cheque (arrays paralelos a cheques)
-  const [libradorBusqs,   setLibradorBusqs]   = useState<string[]>(['']);
-  const [libradorOptsAll, setLibradorOptsAll] = useState<ContactoOption[][]>([[]]);
+  const [libradorBusqs,      setLibradorBusqs]      = useState<string[]>(['']);
+  const [libradorOptsAll,    setLibradorOptsAll]    = useState<ContactoOption[][]>([[]]);
+  const [activeLibradorRow,  setActiveLibradorRow]  = useState<number>(-1); // fila con foco activo
 
   // Bancos (Panel Global)
   const [bancos, setBancos] = useState<any[]>([]);
+
+  // Feriados — Set de fechas YYYY-MM-DD para lookup O(1) al calcular días hábiles
+  const [feriados, setFeriados] = useState<Set<string>>(new Set());
 
   // Timer refs para debounce de búsqueda de librador (uno por fila)
   const libradorTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -108,6 +136,23 @@ export default function SimuladorDescuento() {
   useEffect(() => {
     panelGlobalApi.getBancosActivos().then(setBancos).catch(() => {});
   }, []);
+
+  // ── Cargar feriados (año de operación + siguiente para cubrir 180 días) ──
+  useEffect(() => {
+    const año1 = new Date(fechaOperacion + 'T00:00:00').getFullYear();
+    const año2 = año1 + 1;
+    Promise.all([
+      panelGlobalApi.getFeriados(año1),
+      panelGlobalApi.getFeriados(año2),
+    ]).then(([f1, f2]) => {
+      const set = new Set<string>();
+      [...(Array.isArray(f1) ? f1 : []), ...(Array.isArray(f2) ? f2 : [])].forEach((f: any) => {
+        const fecha = (f.fecha ?? f.date ?? '').toString().slice(0, 10);
+        if (fecha) set.add(fecha);
+      });
+      setFeriados(set);
+    }).catch(() => {});
+  }, [fechaOperacion]);
 
   // ── Cargar cuentas de acreditación al seleccionar cliente ────────────
   useEffect(() => {
@@ -246,7 +291,13 @@ export default function SimuladorDescuento() {
 
   // ── Cálculos ──────────────────────────────────────────────────────────
 
-  const liquidacion   = calcularLiquidacion(cheques, fechaOperacion);
+  // calcDiasFn cierra sobre `feriados` — lo pasamos a calcularLiquidacion
+  const calcDiasFn = useCallback(
+    (from: string, to: string) => calcDiasHabiles(from, to, feriados),
+    [feriados],
+  );
+
+  const liquidacion   = calcularLiquidacion(cheques, fechaOperacion, calcDiasFn);
   const totalCheques  = liquidacion.reduce((s, l) => s + l.monto, 0);
   const totalIntereses= liquidacion.reduce((s, l) => s + l.interes, 0);
   const comisionNum   = parseFloat(comision.replace(/\./g, '').replace(',', '.')) || 0;
@@ -267,11 +318,8 @@ export default function SimuladorDescuento() {
     return 'ok';
   };
 
-  // Días desde fechaOperacion hasta vencimiento — independiente del monto
-  const calcDias = (venc: string): number => {
-    if (!venc || !fechaOperacion) return 0;
-    return Math.max(0, calcularDias(fechaOperacion, venc));
-  };
+  // Días hábiles desde fechaOperacion hasta vencimiento (excluye fines de semana y feriados)
+  const calcDias = (venc: string): number => calcDiasHabiles(fechaOperacion, venc, feriados);
 
   // ── Aplicar tasa global ───────────────────────────────────────────────
   const [tasaGlobal, setTasaGlobal] = useState('');
@@ -602,7 +650,7 @@ export default function SimuladorDescuento() {
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">RUC/CI Librador</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">N° Cheque</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Vencimiento</th>
-                <th className="text-center px-2 py-2 text-xs font-medium text-gray-500">Días</th>
+                <th className="text-center px-2 py-2 text-xs font-medium text-gray-500" title="Días hábiles (excluye sábados, domingos y feriados)">Días háb.</th>
                 <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Monto (Gs.)</th>
                 <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Tasa %/mes</th>
                 <th className="w-8"></th>
@@ -621,20 +669,20 @@ export default function SimuladorDescuento() {
                       <input
                         value={bancoBusqs[i] ?? ''}
                         onChange={e => {
-                          // Solo actualiza el buffer de búsqueda — NO toca cheques[] en cada tecla
-                          // Esto reduce los re-renders a la mitad respecto a doble-setState
                           const v = e.target.value;
                           setBancoBusqs(prev => prev.map((x, idx) => idx === i ? v : x));
                         }}
+                        onFocus={() => setActiveBancoRow(i)}
                         onBlur={() => {
-                          // Sincroniza al cheque solo al perder foco (texto libre o selección)
+                          setActiveBancoRow(-1);
                           updateCheque(i, 'banco', bancoBusqs[i] ?? '');
                         }}
                         placeholder="Buscar banco..."
                         autoComplete="off"
                         className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
                       />
-                      {(() => {
+                      {/* Dropdown SOLO cuando esta fila tiene foco */}
+                      {activeBancoRow === i && (() => {
                         const q = (bancoBusqs[i] ?? '').toLowerCase().trim();
                         if (!q) return null;
                         const filtered = bancos.filter((b: any) =>
@@ -646,12 +694,11 @@ export default function SimuladorDescuento() {
                             {filtered.map((b: any) => (
                               <button
                                 key={b.id}
-                                // onMouseDown + preventDefault: evita que onBlur cierre el
-                                // dropdown antes de que el click registre la selección
                                 onMouseDown={e => {
                                   e.preventDefault();
                                   updateCheque(i, 'banco', b.nombre);
                                   setBancoBusqs(prev => prev.map((x, idx) => idx === i ? b.nombre : x));
+                                  setActiveBancoRow(-1);
                                 }}
                                 className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
                               >
@@ -668,24 +715,25 @@ export default function SimuladorDescuento() {
                       <input
                         value={libradorBusqs[i] ?? ''}
                         onChange={e => buscarLibrador(i, e.target.value)}
+                        onFocus={() => setActiveLibradorRow(i)}
                         onBlur={() => {
-                          // Sincroniza texto libre al cheque si no hubo selección
+                          setActiveLibradorRow(-1);
                           updateCheque(i, 'librador', libradorBusqs[i] ?? '');
                         }}
                         placeholder="Buscar librador (nombre, CI o RUC)..."
                         autoComplete="off"
                         className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
                       />
-                      {(libradorOptsAll[i] || []).length > 0 && (
+                      {/* Dropdown SOLO cuando esta fila tiene foco y hay resultados */}
+                      {activeLibradorRow === i && (libradorOptsAll[i] || []).length > 0 && (
                         <div className="absolute z-30 left-0 min-w-[280px] bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-52 overflow-y-auto">
                           {(libradorOptsAll[i] || []).map((o: ContactoOption) => (
                             <button
                               key={o.id}
-                              // onMouseDown + preventDefault: evita que onBlur cierre el
-                              // dropdown antes de que el click registre la selección
                               onMouseDown={e => {
                                 e.preventDefault();
                                 seleccionarLibrador(i, o);
+                                setActiveLibradorRow(-1);
                               }}
                               className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-100 last:border-0"
                             >
@@ -804,7 +852,7 @@ export default function SimuladorDescuento() {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">#</th>
                   <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Vencimiento</th>
-                  <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Días</th>
+                  <th className="text-center px-3 py-2 text-xs font-medium text-gray-500" title="Días hábiles (excluye sábados, domingos y feriados)">Días háb.</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Monto Cheque</th>
                   <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Tasa %/mes</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 text-orange-600">Interés (Gs.)</th>
