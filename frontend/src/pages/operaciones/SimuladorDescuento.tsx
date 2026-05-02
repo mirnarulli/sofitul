@@ -76,6 +76,9 @@ export default function SimuladorDescuento() {
   // Cheques (max 10)
   const [cheques, setCheques] = useState<Cheque[]>([{ ...CHEQUE_VACIO }]);
 
+  // Banco búsqueda por cheque (array paralelo)
+  const [bancoBusqs, setBancoBusqs] = useState<string[]>(['']);
+
   // Librador búsqueda por cheque (arrays paralelos a cheques)
   const [libradorBusqs,   setLibradorBusqs]   = useState<string[]>(['']);
   const [libradorOptsAll, setLibradorOptsAll] = useState<ContactoOption[][]>([[]]);
@@ -209,6 +212,7 @@ export default function SimuladorDescuento() {
   const agregarCheque = () => {
     if (cheques.length < 10) {
       setCheques(prev => [...prev, { ...CHEQUE_VACIO }]);
+      setBancoBusqs(prev => [...prev, '']);
       setLibradorBusqs(prev => [...prev, '']);
       setLibradorOptsAll(prev => [...prev, []]);
     }
@@ -217,6 +221,7 @@ export default function SimuladorDescuento() {
   const quitarCheque = (i: number) => {
     if (cheques.length > 1) {
       setCheques(prev => prev.filter((_, idx) => idx !== i));
+      setBancoBusqs(prev => prev.filter((_, idx) => idx !== i));
       setLibradorBusqs(prev => prev.filter((_, idx) => idx !== i));
       setLibradorOptsAll(prev => prev.filter((_, idx) => idx !== i));
     }
@@ -587,18 +592,42 @@ export default function SimuladorDescuento() {
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 align-top">
                     <td className="px-3 py-2 text-gray-400 text-xs pt-3">{i + 1}</td>
 
-                    {/* Banco — dropdown desde Panel Global */}
-                    <td className="px-1 py-1">
-                      <select
-                        value={c.banco}
-                        onChange={e => updateCheque(i, 'banco', e.target.value)}
+                    {/* Banco — búsqueda con autocompletar desde Panel Global */}
+                    <td className="px-1 py-1 relative">
+                      <input
+                        value={bancoBusqs[i] ?? c.banco}
+                        onChange={e => {
+                          const v = e.target.value;
+                          setBancoBusqs(prev => prev.map((x, idx) => idx === i ? v : x));
+                          updateCheque(i, 'banco', v);
+                        }}
+                        placeholder="Buscar banco..."
                         className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="">Banco...</option>
-                        {bancos.map((b: any) => (
-                          <option key={b.id} value={b.nombre}>{b.nombre}</option>
-                        ))}
-                      </select>
+                      />
+                      {(() => {
+                        const q = (bancoBusqs[i] ?? '').toLowerCase().trim();
+                        if (!q) return null;
+                        const filtered = bancos.filter((b: any) =>
+                          b.nombre.toLowerCase().includes(q) && b.nombre !== c.banco
+                        );
+                        if (filtered.length === 0) return null;
+                        return (
+                          <div className="absolute z-30 left-0 w-56 bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-44 overflow-y-auto">
+                            {filtered.map((b: any) => (
+                              <button
+                                key={b.id}
+                                onClick={() => {
+                                  updateCheque(i, 'banco', b.nombre);
+                                  setBancoBusqs(prev => prev.map((x, idx) => idx === i ? b.nombre : x));
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                              >
+                                {b.nombre}
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Librador — búsqueda con autocompletar (garante del cheque) */}
