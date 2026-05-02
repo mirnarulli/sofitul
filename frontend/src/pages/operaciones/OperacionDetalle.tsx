@@ -4,6 +4,7 @@ import { ArrowLeft, Printer, FileText, Upload, ExternalLink, Save, UserCheck, Pl
 import { operacionesApi } from '../../services/operacionesApi';
 import { contactosApi, mediosPagoApi } from '../../services/contactosApi';
 import { transaccionesApi, cargosOperacionApi } from '../../services/financieroApi';
+import { empleadosApi, talonariosApi } from '../../services/rrhhApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
 
@@ -83,6 +84,10 @@ export default function OperacionDetalle() {
   const [nroReferencia, setNroReferencia] = useState('');
   const [fechaCobroTx,  setFechaCobroTx]  = useState(new Date().toISOString().split('T')[0]);
   const [toastCobro,    setToastCobro]    = useState('');
+  const [cobradores,        setCobradores]        = useState<any[]>([]);
+  const [cobradorSelId,     setCobradorSelId]     = useState('');
+  const [usarTalonario,     setUsarTalonario]     = useState(false);
+  const [talonarioPreview,  setTalonarioPreview]  = useState<any | null>(null);
 
   // Cheques — cambio de estado individual
   const [updatingCheque, setUpdatingCheque] = useState<string | null>(null); // id del cheque en proceso
@@ -124,12 +129,27 @@ export default function OperacionDetalle() {
     // Load transactions and charges independently (don't block main load)
     transaccionesApi.getByOperacion(id).then(setTransacciones).catch(() => {});
     cargosOperacionApi.getByOperacion(id).then(setCargos).catch(() => {});
+    mediosPagoApi.getActivos().then(setMediosPago).catch(() => {});
   }, [id, navigate]);
 
   useEffect(() => {
-    if (modalCobro && mediosPago.length === 0)
-      mediosPagoApi.getActivos().then(setMediosPago).catch(() => {});
+    if (modalCobro) {
+      if (mediosPago.length === 0)
+        mediosPagoApi.getActivos().then(setMediosPago).catch(() => {});
+      if (cobradores.length === 0)
+        empleadosApi.getCobradores().then(setCobradores).catch(() => {});
+    }
   }, [modalCobro]);
+
+  useEffect(() => {
+    if (cobradorSelId && usarTalonario) {
+      talonariosApi.getByEmpleado(cobradorSelId)
+        .then((ts: any[]) => setTalonarioPreview(ts.find((t: any) => t.activo) ?? null))
+        .catch(() => setTalonarioPreview(null));
+    } else {
+      setTalonarioPreview(null);
+    }
+  }, [cobradorSelId, usarTalonario]);
 
   const cargar = async () => {
     if (!id) return;
@@ -275,7 +295,7 @@ export default function OperacionDetalle() {
     if (!cuotasSel.length || !medioPagoId) return;
     setCobrando(true);
     try {
-      await transaccionesApi.registrarPago({
+      const result = await transaccionesApi.registrarPago({
         operacionId:      op.id,
         fechaTransaccion: fechaCobroTx,
         fechaValor:       fechaCobroTx,
@@ -287,6 +307,8 @@ export default function OperacionDetalle() {
         montoProrroga:    0,
         medioPagoId,
         nroReferencia:    nroReferencia || undefined,
+        cobradorId:    cobradorSelId || undefined,
+        usarTalonario: usarTalonario && !!cobradorSelId,
         aplicaciones: cuotasSelObj.map((c: any) => ({
           cuotaId:         c.id,
           capitalAplicado: Math.max(0, Number(c.capital) - Number(c.pagado ?? 0)),
@@ -299,7 +321,10 @@ export default function OperacionDetalle() {
       setModalCobro(false);
       setCuotasSel([]);
       setNroReferencia('');
-      setToastCobro('Cobro registrado correctamente');
+      setCobradorSelId('');
+      setUsarTalonario(false);
+      setTalonarioPreview(null);
+      setToastCobro(result?.nroRecibo ? `Cobro registrado · Recibo ${result.nroRecibo}` : 'Cobro registrado correctamente');
       cargar();
     } catch (e: any) {
       setToastCobro(e?.response?.data?.message ?? 'Error al registrar cobro');
@@ -625,7 +650,7 @@ export default function OperacionDetalle() {
                           ? <span className="text-red-500">REVERSO</span>
                           : tx.nroRecibo ?? <span className="text-gray-400">—</span>}
                       </td>
-                      <td className="px-3 py-2">{tx.medioPagoId ? tx.medioPagoId.substring(0,8) + '…' : '—'}</td>
+                      <td className="px-3 py-2">{mediosPago.find((m: any) => m.id === tx.medioPagoId)?.nombre ?? (tx.medioPagoId ? '—' : '—')}</td>
                       <td className="px-3 py-2 font-medium">{formatGs(tx.montoCapital)}</td>
                       <td className="px-3 py-2 text-red-600">{Number(tx.montoInteres) > 0 ? formatGs(tx.montoInteres) : '—'}</td>
                       <td className="px-3 py-2 text-orange-600">{Number(tx.montoMora) > 0 ? formatGs(tx.montoMora) : '—'}</td>
@@ -935,6 +960,38 @@ export default function OperacionDetalle() {
                 <input type="date" value={fechaCobroTx} onChange={e => setFechaCobroTx(e.target.value)}
                   className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
+
+              {/* Cobrador */}
+              {cobradores.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Cobrador</label>
+                  <select value={cobradorSelId} onChange={e => { setCobradorSelId(e.target.value); setUsarTalonario(false); }}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Sin cobrador asignado</option>
+                    {cobradores.map((c: any) => (
+                      <option key={c.id} value={c.id}>{c.apellido}, {c.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Talonario */}
+              {cobradorSelId && (
+                <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" checked={usarTalonario} onChange={e => setUsarTalonario(e.target.checked)}
+                      className="w-4 h-4 accent-blue-600" />
+                    Generar N° de recibo
+                  </label>
+                  {usarTalonario && (
+                    talonarioPreview
+                      ? <span className="font-mono text-sm font-bold text-blue-700">
+                          {talonarioPreview.prefijo}-{String(talonarioPreview.nroSiguiente).padStart(6, '0')}
+                        </span>
+                      : <span className="text-xs text-red-500">Sin talonario activo</span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
