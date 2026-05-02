@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter } from 'lucide-react';
+import { Search, Download } from 'lucide-react';
 import { cobranzasApi } from '../../services/operacionesApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
@@ -8,8 +8,23 @@ import { formatGs, formatDate } from '../../utils/formatters';
 export default function Cobranzas() {
   const [data, setData] = useState<any[]>([]);
   const [resumen, setResumen] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading,    setLoading]    = useState(true);
+  const [exportando, setExportando] = useState(false);
   const [filtros, setFiltros] = useState({ estado: '', q: '' });
+
+  const handleExport = async () => {
+    setExportando(true);
+    try {
+      const blob = await cobranzasApi.exportExcel({ estado: filtros.estado || undefined });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cobranzas-${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silencioso */ }
+    finally { setExportando(false); }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -32,9 +47,15 @@ export default function Cobranzas() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Cobranzas</h1>
-        <p className="text-sm text-gray-500">Cartera activa y recupero</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Cobranzas</h1>
+          <p className="text-sm text-gray-500">Cartera activa y recupero</p>
+        </div>
+        <button onClick={handleExport} disabled={exportando}
+          className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-50">
+          <Download size={16} /> {exportando ? 'Exportando...' : 'Exportar Excel'}
+        </button>
       </div>
 
       {/* Resumen */}

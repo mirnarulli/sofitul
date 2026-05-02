@@ -42,6 +42,8 @@ export const operacionesApi = {
 };
 
 export const cobranzasApi = {
+  exportExcel:       (params?: { estado?: string; cobradorId?: string; tipo?: string }) =>
+    api.get('/cobranzas/export', { params, responseType: 'blob' }).then(r => r.data as Blob),
   getCartera:        (params?: any)                    => api.get('/cobranzas', { params }).then(r => r.data),
   getResumenCartera: ()                                => api.get('/cobranzas/resumen').then(r => r.data),
   getVencimientos:   ()                                => api.get('/cobranzas/vencimientos').then(r => r.data),
@@ -61,6 +63,7 @@ export const tesoreriaApi = {
 export const inventarioApi = {
   getResumen:         () => api.get('/inventario-capital/resumen').then(r => r.data),
   getChequesDashboard:() => api.get('/inventario-capital/cheques-dashboard').then(r => r.data),
+  exportCheques:      () => api.get('/inventario-capital/export-cheques', { responseType: 'blob' }).then(r => r.data as Blob),
   getCheques:         () => api.get('/inventario-capital/cheques').then(r => r.data),
   getRentabilidad:    () => api.get('/inventario-capital/rentabilidad').then(r => r.data),
 };

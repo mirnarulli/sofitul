@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { utils as xlsxUtils, write as xlsxWrite } from 'xlsx';
 
 @Injectable()
 export class InventarioCapitalService {
@@ -178,5 +179,42 @@ export class InventarioCapitalService {
       ORDER BY 1 DESC
       LIMIT 12
     `);
+  }
+
+  // ── Exportación Excel de cheques ────────────────────────────────────────
+  async exportChequesToExcel(): Promise<Buffer> {
+    const rows = await this.getInventarioCheques() as Record<string, unknown>[];
+    const fecha = new Date().toISOString().split('T')[0];
+
+    const filas = rows.map(r => ({
+      'N° Operación':       r['nro_operacion'],
+      'Cliente':            r['contacto_nombre'],
+      'Documento':          r['contacto_doc'],
+      'Canal':              r['canal'] ?? '',
+      'Banco':              r['banco'],
+      'Librador':           r['librador'],
+      'N° Cheque':          r['nro_cheque'],
+      'Vencimiento':        r['fecha_vencimiento'] ?? '',
+      'Monto (Gs.)':        Number(r['monto'] ?? 0),
+      'Capital Inv. (Gs.)': Number(r['capital_invertido'] ?? 0),
+      'Descuento Bruto':    Number(r['descuento_bruto'] ?? 0),
+      'Comisión':           Number(r['comision'] ?? 0),
+      'Ganancia Neta':      Number(r['ganancia_neta'] ?? 0),
+      'Tasa Mensual %':     Number(r['tasa_mensual'] ?? 0),
+      'Estado':             r['estado'],
+      'Alerta':             r['alerta'],
+      'Días Vencida':       Number(r['dias_vencida'] ?? 0),
+    }));
+
+    const ws = xlsxUtils.json_to_sheet(filas);
+    ws['!cols'] = [
+      { wch: 16 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 24 },
+      { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 12 },
+      { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 10 },
+    ];
+
+    const wb = xlsxUtils.book_new();
+    xlsxUtils.book_append_sheet(wb, ws, `Cheques ${fecha}`);
+    return xlsxWrite(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 }

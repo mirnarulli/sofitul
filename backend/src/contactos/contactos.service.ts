@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { utils as xlsxUtils, write as xlsxWrite } from 'xlsx';
 import { ContactoPF } from './entities/contacto-pf.entity';
 import { ContactoPJ } from './entities/contacto-pj.entity';
 import { Operacion } from '../operaciones/entities/operacion.entity';
@@ -218,5 +219,55 @@ export class ContactosService {
       where: { contactoTipo: tipo as 'pf' | 'pj', contactoId: id },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  // ── Exportación Excel ────────────────────────────────────────────────────
+  async exportToExcel(): Promise<Buffer> {
+    const [personas, empresas] = await Promise.all([
+      this.pfRepo.find({ order: { createdAt: 'DESC' } }),
+      this.pjRepo.find({ order: { createdAt: 'DESC' } }),
+    ]);
+
+    const wsPF = xlsxUtils.json_to_sheet(personas.map(p => ({
+      'Primer Nombre':    p.primerNombre,
+      'Segundo Nombre':   p.segundoNombre ?? '',
+      'Primer Apellido':  p.primerApellido,
+      'Segundo Apellido': p.segundoApellido ?? '',
+      'Documento':        p.numeroDoc,
+      'Fecha Nacimiento': p.fechaNacimiento ?? '',
+      'Teléfono':         p.telefono ?? '',
+      'Email':            p.email ?? '',
+      'Domicilio':        p.domicilio ?? '',
+      'Ciudad':           p.ciudad ?? '',
+      'Departamento':     p.departamento ?? '',
+      'Activo':           p.activo ? 'Sí' : 'No',
+    })));
+    wsPF['!cols'] = [
+      { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 },
+      { wch: 14 }, { wch: 14 }, { wch: 28 }, { wch: 28 }, { wch: 18 }, { wch: 18 }, { wch: 8 },
+    ];
+
+    const wsPJ = xlsxUtils.json_to_sheet(empresas.map(e => ({
+      'Razón Social':    e.razonSocial,
+      'Nombre Fantasía': e.nombreFantasia ?? '',
+      'RUC':             e.ruc,
+      'Teléfono':        e.telefono ?? '',
+      'Email':           e.email ?? '',
+      'Domicilio':       e.domicilio ?? '',
+      'Ciudad':          e.ciudad ?? '',
+      'Rep. Legal':      e.repLegalNombre ?? '',
+      'Cargo Rep.':      e.repLegalCargo ?? '',
+      'Actividad':       e.actividadPrincipal ?? '',
+      'Activo':          e.activo ? 'Sí' : 'No',
+    })));
+    wsPJ['!cols'] = [
+      { wch: 32 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 28 },
+      { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 20 }, { wch: 30 }, { wch: 8 },
+    ];
+
+    const wb = xlsxUtils.book_new();
+    xlsxUtils.book_append_sheet(wb, wsPF, 'Personas Físicas');
+    xlsxUtils.book_append_sheet(wb, wsPJ, 'Empresas');
+    return xlsxWrite(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 }

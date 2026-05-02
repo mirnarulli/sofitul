@@ -1,16 +1,31 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Plus, Search, Building2, User } from 'lucide-react';
+import { Plus, Search, Building2, User, Download } from 'lucide-react';
 import { contactosApi } from '../../services/contactosApi';
 import { formatDate } from '../../utils/formatters';
 
 export default function Contactos() {
   const { pathname } = useLocation();
   const initTab: 'pf' | 'pj' = pathname.startsWith('/contactos/empresas') ? 'pj' : 'pf';
-  const [tab, setTab] = useState<'pf' | 'pj'>(initTab);
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
+  const [tab,        setTab]        = useState<'pf' | 'pj'>(initTab);
+  const [data,       setData]       = useState<any[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [exportando, setExportando] = useState(false);
+  const [q,          setQ]          = useState('');
+
+  const handleExport = async () => {
+    setExportando(true);
+    try {
+      const blob = await contactosApi.exportExcel();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contactos-${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silencioso */ }
+    finally { setExportando(false); }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -31,6 +46,10 @@ export default function Contactos() {
           <p className="text-sm text-gray-500">{data.length} registros</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={handleExport} disabled={exportando}
+            className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-50">
+            <Download size={15} /> {exportando ? 'Exportando...' : 'Exportar Excel'}
+          </button>
           <Link to="/contactos/personas/nuevo"
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium">
             <Plus size={15} /> Persona Física

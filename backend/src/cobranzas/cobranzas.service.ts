@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { utils as xlsxUtils, write as xlsxWrite } from 'xlsx';
 import { OperacionesService } from '../operaciones/operaciones.service';
 import { MailService } from '../mail/mail.service';
 import { ESTADO_OP } from '../common/constants/estado-operacion.constants';
@@ -93,5 +94,31 @@ export class CobranzasService {
         SUM(ganancia_neta) FILTER (WHERE estado = 'COBRADO') AS ganancia_real
       FROM operaciones
     `);
+  }
+
+  // ── Exportación Excel ────────────────────────────────────────────────────
+  async exportToExcel(filtros: { estado?: string; cobradorId?: string; tipo?: string } = {}): Promise<Buffer> {
+    const rows = await this.getCartera(filtros) as Record<string, unknown>[];
+    const filas = rows.map(o => ({
+      'N° Operación':      o['nro_operacion'],
+      'Tipo':              o['tipo_operacion'] === 'DESCUENTO_CHEQUE' ? 'Descuento Cheque' : 'Préstamo Consumo',
+      'Estado':            o['estado'],
+      'Cliente':           o['contacto_nombre'],
+      'Documento':         o['contacto_doc'],
+      'Vencimiento':       o['fecha_vencimiento'] ?? '',
+      'Días vencida':      Number(o['dias_vencida'] ?? 0),
+      'Monto Total (Gs.)': Number(o['monto_total'] ?? 0),
+      'Capital (Gs.)':     Number(o['capital_invertido'] ?? 0),
+      'Ganancia (Gs.)':    Number(o['ganancia_neta'] ?? 0),
+      'Canal':             o['canal'] ?? '',
+    }));
+    const ws = xlsxUtils.json_to_sheet(filas);
+    ws['!cols'] = [
+      { wch: 16 }, { wch: 20 }, { wch: 18 }, { wch: 32 }, { wch: 16 },
+      { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
+    ];
+    const wb = xlsxUtils.book_new();
+    xlsxUtils.book_append_sheet(wb, ws, 'Cobranzas');
+    return xlsxWrite(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
   }
 }

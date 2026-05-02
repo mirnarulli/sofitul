@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle, CheckCircle2, Clock, RefreshCw,
-  Landmark, TrendingUp, FileWarning,
+  Landmark, TrendingUp, FileWarning, Download,
 } from 'lucide-react';
 import { inventarioApi } from '../../services/operacionesApi';
 import { KpiCard } from '../../components/ui/KpiCard';
@@ -111,10 +111,25 @@ function TablaCheques({ rows, tipo }: { rows: ChequeRow[]; tipo: 'proximos' | 'v
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function DashboardCheques() {
-  const [data,    setData]    = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [ts,      setTs]      = useState(Date.now());
-  const [tab,     setTab]     = useState<'proximos' | 'vencidos'>('proximos');
+  const [data,       setData]       = useState<Record<string, unknown> | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [exportando, setExportando] = useState(false);
+  const [ts,         setTs]         = useState(Date.now());
+  const [tab,        setTab]        = useState<'proximos' | 'vencidos'>('proximos');
+
+  const handleExport = async () => {
+    setExportando(true);
+    try {
+      const blob = await inventarioApi.exportCheques();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cheques-${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silencioso */ }
+    finally { setExportando(false); }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -153,11 +168,17 @@ export default function DashboardCheques() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard Cheques</h1>
           <p className="text-sm text-gray-500 mt-0.5">Cartera de cheques activos · Vencimientos · Concentración por banco</p>
         </div>
-        <button onClick={() => setTs(Date.now())}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:border-blue-300 transition-colors">
-          <RefreshCw size={14} />
-          Actualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleExport} disabled={exportando}
+            className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50 transition-colors">
+            <Download size={14} /> {exportando ? 'Exportando...' : 'Excel'}
+          </button>
+          <button onClick={() => setTs(Date.now())}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:border-blue-300 transition-colors">
+            <RefreshCw size={14} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {/* ── KPI Cards ──────────────────────────────────────────────── */}

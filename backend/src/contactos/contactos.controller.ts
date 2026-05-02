@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request, StreamableFile } from '@nestjs/common';
 import { ContactosService } from './contactos.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -6,6 +6,16 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 export class ContactosController {
   constructor(private svc: ContactosService) {}
+
+  @Get('export')
+  async exportExcel() {
+    const buf   = await this.svc.exportToExcel();
+    const fecha = new Date().toISOString().split('T')[0];
+    return new StreamableFile(buf, {
+      type:        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="contactos-${fecha}.xlsx"`,
+    });
+  }
 
   @Get('buscar-doc')
   buscarPorDoc(@Query('doc') doc: string) { return this.svc.buscarPorDoc(doc); }

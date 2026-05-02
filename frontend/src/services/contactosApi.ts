@@ -1,6 +1,7 @@
 import api from './api';
 
 export const contactosApi = {
+  exportExcel:  ()             => api.get('/contactos/export', { responseType: 'blob' }).then(r => r.data as Blob),
   buscarPorDoc: (doc: string) => api.get(`/contactos/buscar-doc?doc=${doc}`).then(r => r.data),
 
   // Persona Física

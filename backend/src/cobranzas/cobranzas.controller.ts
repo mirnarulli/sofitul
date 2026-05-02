@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, StreamableFile } from '@nestjs/common';
 import { CobranzasService } from './cobranzas.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -6,6 +6,20 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 export class CobranzasController {
   constructor(private svc: CobranzasService) {}
+
+  @Get('export')
+  async exportExcel(
+    @Query('estado')     estado?: string,
+    @Query('cobradorId') cobradorId?: string,
+    @Query('tipo')       tipo?: string,
+  ) {
+    const buf   = await this.svc.exportToExcel({ estado, cobradorId, tipo });
+    const fecha = new Date().toISOString().split('T')[0];
+    return new StreamableFile(buf, {
+      type:        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="cobranzas-${fecha}.xlsx"`,
+    });
+  }
 
   @Get()
   getCartera(
