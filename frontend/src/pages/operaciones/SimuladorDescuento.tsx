@@ -321,8 +321,25 @@ export default function SimuladorDescuento() {
   // Días hábiles desde fechaOperacion hasta vencimiento (excluye fines de semana y feriados)
   const calcDias = (venc: string): number => calcDiasHabiles(fechaOperacion, venc, feriados);
 
-  // ── Aplicar tasa global ───────────────────────────────────────────────
+  // ── Tasa global + carga desde Producto Financiero ────────────────────
   const [tasaGlobal, setTasaGlobal] = useState('');
+
+  useEffect(() => {
+    // Pre-cargar tasa por defecto desde el Producto DESCUENTO_CHEQUE del Panel Global
+    panelGlobalApi.getProductosActivos()
+      .then((prods: any[]) => {
+        const prod = prods.find((p: any) =>
+          p.tipoOperacion === 'DESCUENTO_CHEQUE' && p.config?.tasaMensualDefault != null
+        );
+        if (prod) {
+          const tasa = String(prod.config.tasaMensualDefault);
+          setTasaGlobal(tasa);
+          setCheques(prev => prev.map(c => c.tasaMensual ? c : { ...c, tasaMensual: tasa }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const aplicarTasaGlobal = () => {
     if (!tasaGlobal) return;
     setCheques(prev => prev.map(c => ({ ...c, tasaMensual: tasaGlobal })));

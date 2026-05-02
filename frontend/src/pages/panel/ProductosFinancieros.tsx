@@ -11,7 +11,7 @@ const CONTACTO_OPTIONS = [
   { value: 'pj',    label: 'Persona Jurídica' },
   { value: 'ambos', label: 'Ambos (PF y PJ)' },
 ];
-const EMPTY_FORM = { codigo: '', nombre: '', descripcion: '', tipoOperacion: 'DESCUENTO_CHEQUE', tipoContacto: 'ambos', activo: true };
+const EMPTY_FORM = { codigo: '', nombre: '', descripcion: '', tipoOperacion: 'DESCUENTO_CHEQUE', tipoContacto: 'ambos', activo: true, tasaMensualDefault: '' };
 
 const labelContacto = (v: string) => CONTACTO_OPTIONS.find(o => o.value === v)?.label ?? v;
 const colorContacto = (v: string) =>
@@ -50,8 +50,15 @@ export default function ProductosFinancieros() {
     if (!form.codigo.trim() || !form.nombre.trim()) { alert('Código y nombre son requeridos.'); return; }
     setSaving(true);
     try {
-      if (editId) await panelGlobalApi.updateProducto(editId, form);
-      else        await panelGlobalApi.createProducto(form);
+      const tasaNum = form.tasaMensualDefault !== '' ? parseFloat(form.tasaMensualDefault) : null;
+      const body = {
+        ...form,
+        config: form.tipoOperacion === 'DESCUENTO_CHEQUE'
+          ? { tasaMensualDefault: tasaNum }
+          : {},
+      };
+      if (editId) await panelGlobalApi.updateProducto(editId, body);
+      else        await panelGlobalApi.createProducto(body);
       setShowForm(false); setEditId(null); setForm({ ...EMPTY_FORM }); cargar();
     } catch (err: any) { alert(err.response?.data?.message ?? 'Error.'); }
     finally { setSaving(false); }
@@ -59,8 +66,15 @@ export default function ProductosFinancieros() {
 
   const handleEditar = (p: any) => {
     setEditId(p.id);
-    setForm({ codigo: p.codigo, nombre: p.nombre, descripcion: p.descripcion ?? '',
-              tipoOperacion: p.tipoOperacion, tipoContacto: p.tipoContacto ?? 'ambos', activo: p.activo });
+    setForm({
+      codigo:              p.codigo,
+      nombre:              p.nombre,
+      descripcion:         p.descripcion ?? '',
+      tipoOperacion:       p.tipoOperacion,
+      tipoContacto:        p.tipoContacto ?? 'ambos',
+      activo:              p.activo,
+      tasaMensualDefault:  p.config?.tasaMensualDefault != null ? String(p.config.tasaMensualDefault) : '',
+    });
     setShowForm(true);
   };
 
@@ -136,6 +150,34 @@ export default function ProductosFinancieros() {
               <input value={form.descripcion} onChange={e => setForm(x => ({ ...x, descripcion: e.target.value }))}
                 placeholder="Descripción breve" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
+
+            {/* Tasa por defecto — solo para Descuento de Cheque */}
+            {form.tipoOperacion === 'DESCUENTO_CHEQUE' && (
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Tasa mensual por defecto (%)
+                  <span className="ml-1 text-gray-400 font-normal">— se pre-carga en cada liquidación de descuento</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={form.tasaMensualDefault}
+                    onChange={e => setForm(x => ({ ...x, tasaMensualDefault: e.target.value }))}
+                    placeholder="ej: 7"
+                    className="w-36 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-mono"
+                  />
+                  <span className="text-sm text-gray-500">% / mes</span>
+                  {form.tasaMensualDefault && (
+                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                      ≈ {(parseFloat(form.tasaMensualDefault) * 12).toFixed(1)}% anual
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-700 mb-4 cursor-pointer">
             <input type="checkbox" checked={form.activo} onChange={e => setForm(x => ({ ...x, activo: e.target.checked }))} className="w-4 h-4"/>
@@ -175,7 +217,12 @@ export default function ProductosFinancieros() {
                       {p.descripcion && <p className="text-xs text-gray-400 mt-0.5">{p.descripcion}</p>}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600">
-                      {p.tipoOperacion === 'DESCUENTO_CHEQUE' ? 'Dto. Cheque' : 'Préstamo'}
+                      <div>{p.tipoOperacion === 'DESCUENTO_CHEQUE' ? 'Dto. Cheque' : 'Préstamo'}</div>
+                      {p.tipoOperacion === 'DESCUENTO_CHEQUE' && p.config?.tasaMensualDefault != null && (
+                        <div className="text-[11px] text-blue-600 font-mono mt-0.5">
+                          Tasa: {p.config.tasaMensualDefault}%/mes
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colorContacto(p.tipoContacto ?? 'ambos')}`}>
