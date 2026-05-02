@@ -10,7 +10,8 @@ import { Roles } from '../auth/roles.decorator';
 export class InventarioCapitalController {
   constructor(private svc: InventarioCapitalService) {}
 
-  @Get('resumen')        getResumen()     { return this.svc.getResumen(); }
-  @Get('cheques')        getCheques()     { return this.svc.getInventarioCheques(); }
-  @Get('rentabilidad')   getRentabilidad(){ return this.svc.getRentabilidadPorPeriodo(); }
+  @Get('resumen')            getResumen()         { return this.svc.getResumen(); }
+  @Get('cheques-dashboard')  getChequesDashboard(){ return this.svc.getChequesDashboard(); }
+  @Get('cheques')            getCheques()         { return this.svc.getInventarioCheques(); }
+  @Get('rentabilidad')       getRentabilidad()    { return this.svc.getRentabilidadPorPeriodo(); }
 }

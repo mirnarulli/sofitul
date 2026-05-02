@@ -60,6 +60,110 @@ export class InventarioCapitalService {
     `);
   }
 
+  async getChequesDashboard() {
+    const [kpis, porEstado, porBanco, proximos, vencidos] = await Promise.all([
+
+      // ── KPIs ─────────────────────────────────────────────────────────────
+      this.ds.query<Record<string, unknown>[]>(`
+        SELECT
+          COUNT(*) FILTER (WHERE cd.estado = 'VIGENTE' AND cd.fecha_vencimiento::date >= CURRENT_DATE)  AS vigentes,
+          SUM(cd.monto) FILTER (WHERE cd.estado = 'VIGENTE' AND cd.fecha_vencimiento::date >= CURRENT_DATE) AS monto_vigente,
+          SUM(cd.capital_invertido) FILTER (WHERE cd.estado = 'VIGENTE' AND cd.fecha_vencimiento::date >= CURRENT_DATE) AS capital_vigente,
+          COUNT(*) FILTER (WHERE cd.estado = 'VIGENTE' AND cd.fecha_vencimiento::date < CURRENT_DATE)   AS vencidos,
+          SUM(cd.monto) FILTER (WHERE cd.estado = 'VIGENTE' AND cd.fecha_vencimiento::date < CURRENT_DATE) AS monto_vencido,
+          COUNT(*) FILTER (WHERE cd.estado = 'VIGENTE' AND cd.fecha_vencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + 14) AS proximos_14,
+          SUM(cd.monto) FILTER (WHERE cd.estado = 'VIGENTE' AND cd.fecha_vencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + 14) AS monto_proximos_14
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id = cd.operacion_id
+        WHERE o.estado NOT IN ('CERRADO','RECHAZADO')
+      `),
+
+      // ── Por estado ───────────────────────────────────────────────────────
+      this.ds.query<Record<string, unknown>[]>(`
+        SELECT
+          cd.estado,
+          COUNT(*)               AS cantidad,
+          SUM(cd.monto)          AS monto,
+          SUM(cd.capital_invertido) AS capital
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id = cd.operacion_id
+        WHERE o.estado NOT IN ('CERRADO','RECHAZADO')
+        GROUP BY cd.estado
+        ORDER BY monto DESC
+      `),
+
+      // ── Por banco (VIGENTE) ──────────────────────────────────────────────
+      this.ds.query<Record<string, unknown>[]>(`
+        SELECT
+          cd.banco,
+          COUNT(*)               AS cantidad,
+          SUM(cd.monto)          AS monto,
+          SUM(cd.capital_invertido) AS capital
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id = cd.operacion_id
+        WHERE cd.estado = 'VIGENTE'
+          AND o.estado NOT IN ('CERRADO','RECHAZADO')
+        GROUP BY cd.banco
+        ORDER BY monto DESC
+        LIMIT 15
+      `),
+
+      // ── Próximos 30 días (VIGENTE) ───────────────────────────────────────
+      this.ds.query<Record<string, unknown>[]>(`
+        SELECT
+          cd.id,
+          cd.nro_cheque,
+          cd.banco,
+          cd.librador,
+          cd.fecha_vencimiento,
+          cd.monto,
+          cd.capital_invertido,
+          cd.interes,
+          cd.estado,
+          (cd.fecha_vencimiento::date - CURRENT_DATE) AS dias_restantes,
+          o.id           AS operacion_id,
+          o.nro_operacion,
+          o.contacto_nombre,
+          o.contacto_doc,
+          o.canal
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id = cd.operacion_id
+        WHERE cd.estado = 'VIGENTE'
+          AND cd.fecha_vencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + 30
+          AND o.estado NOT IN ('CERRADO','RECHAZADO')
+        ORDER BY cd.fecha_vencimiento ASC
+      `),
+
+      // ── Vencidos (VIGENTE pero ya pasados) ──────────────────────────────
+      this.ds.query<Record<string, unknown>[]>(`
+        SELECT
+          cd.id,
+          cd.nro_cheque,
+          cd.banco,
+          cd.librador,
+          cd.fecha_vencimiento,
+          cd.monto,
+          cd.capital_invertido,
+          cd.interes,
+          cd.estado,
+          (CURRENT_DATE - cd.fecha_vencimiento::date) AS dias_mora,
+          o.id           AS operacion_id,
+          o.nro_operacion,
+          o.contacto_nombre,
+          o.contacto_doc,
+          o.canal
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id = cd.operacion_id
+        WHERE cd.estado = 'VIGENTE'
+          AND cd.fecha_vencimiento::date < CURRENT_DATE
+          AND o.estado NOT IN ('CERRADO','RECHAZADO')
+        ORDER BY cd.fecha_vencimiento ASC
+      `),
+    ]);
+
+    return { kpis: kpis[0] ?? {}, porEstado, porBanco, proximos, vencidos };
+  }
+
   async getRentabilidadPorPeriodo() {
     return this.ds.query(`
       SELECT

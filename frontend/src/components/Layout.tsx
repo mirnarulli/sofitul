@@ -52,9 +52,9 @@ const MODULES: NavModule[] = [
     moduloPermiso: 'tesoreria',
     sections: [{
       items: [
-        { icon: Wallet,     label: 'Desembolsos', path: '/tesoreria' },
+        { icon: Wallet,     label: 'Desembolsos',          path: '/tesoreria' },
         { icon: BarChart2,  label: 'Dashboard Desembolsos', path: '/dashboards/desembolsos' },
-        { icon: TrendingUp, label: 'Inventario Capital', path: '/tesoreria/inventario' },
+        { icon: TrendingUp, label: 'Dashboard Cheques',     path: '/tesoreria/cheques' },
       ],
     }],
   },

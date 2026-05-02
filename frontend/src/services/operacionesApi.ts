@@ -57,9 +57,10 @@ export const tesoreriaApi = {
 };
 
 export const inventarioApi = {
-  getResumen:      () => api.get('/inventario-capital/resumen').then(r => r.data),
-  getCheques:      () => api.get('/inventario-capital/cheques').then(r => r.data),
-  getRentabilidad: () => api.get('/inventario-capital/rentabilidad').then(r => r.data),
+  getResumen:         () => api.get('/inventario-capital/resumen').then(r => r.data),
+  getChequesDashboard:() => api.get('/inventario-capital/cheques-dashboard').then(r => r.data),
+  getCheques:         () => api.get('/inventario-capital/cheques').then(r => r.data),
+  getRentabilidad:    () => api.get('/inventario-capital/rentabilidad').then(r => r.data),
 };
 
 export const dashboardsApi = {

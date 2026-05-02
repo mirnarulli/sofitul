@@ -30,6 +30,7 @@ const ContactoPJDetalle    = lazy(() => import('./pages/contactos/ContactoPJDeta
 
 const Cobranzas            = lazy(() => import('./pages/cobranzas/Cobranzas'));
 const Tesoreria            = lazy(() => import('./pages/tesoreria/Tesoreria'));
+const DashboardCheques     = lazy(() => import('./pages/tesoreria/DashboardCheques'));
 
 const DashboardRecupero    = lazy(() => import('./pages/dashboards/DashboardRecupero'));
 const DashboardDesembolsos = lazy(() => import('./pages/dashboards/DashboardDesembolsos'));
@@ -104,7 +105,8 @@ export default function App() {
             <Route path="/cobranzas" element={<Cobranzas />} />
 
             {/* Tesorería */}
-            <Route path="/tesoreria" element={<Tesoreria />} />
+            <Route path="/tesoreria"         element={<Tesoreria />} />
+            <Route path="/tesoreria/cheques" element={<DashboardCheques />} />
 
             {/* Dashboards */}
             <Route path="/dashboards/recupero"    element={<DashboardRecupero />} />
