@@ -6,7 +6,7 @@
  * sin necesidad de mocks de base de datos.
  */
 
-export type EstadoCheque = 'VIGENTE' | 'COBRADO' | 'DEVUELTO' | 'PROTESTADO';
+export type EstadoCheque = 'VIGENTE' | 'COBRADO' | 'DEVUELTO' | 'PROTESTADO' | 'ENDOSADO';
 
 export interface ChequeEstado {
   id: string;

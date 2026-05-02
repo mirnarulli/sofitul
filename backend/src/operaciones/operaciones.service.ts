@@ -17,6 +17,7 @@ import { RegistrarProrrogaDto } from './dto/registrar-prorroga.dto';
 import { RegistrarPagoCuotaDto } from './dto/registrar-pago-cuota.dto';
 import { CreateChequeDetalleDto } from './dto/create-cheque-detalle.dto';
 import { CreateCuotaDto } from './dto/create-cuota.dto';
+import { calcularNuevoEstadoOp, type EstadoCheque } from './utils/auto-cierre.utils';
 
 @Injectable()
 export class OperacionesService {
@@ -249,29 +250,27 @@ export class OperacionesService {
     await this.chequeRepo.update(id, data);
 
     // Auto-cierre: si todos los cheques de la operación ya no están VIGENTES
-    // y todos son COBRADO → cerrar la operación como COBRADO
+    // → calcularNuevoEstadoOp determina COBRADO / EN_COBRANZA / null (sin cambio)
     if (data.estado) {
       const todos = await this.chequeRepo.find({ where: { operacionId: cheque.operacionId } });
-      const todosTerminal = todos.every(c =>
-        (c.id === id ? data.estado : c.estado) !== 'VIGENTE'
-      );
-      const todosCobrados = todos.every(c =>
-        (c.id === id ? data.estado : c.estado) === 'COBRADO'
+      const nuevoEstadoOp = calcularNuevoEstadoOp(
+        todos.map(c => ({ id: c.id, estado: c.estado as EstadoCheque })),
+        id,
+        data.estado as EstadoCheque,
       );
 
-      if (todosTerminal) {
-        const nuevoEstadoOp = todosCobrados ? ESTADO_OP.COBRADO : ESTADO_OP.EN_COBRANZA;
+      if (nuevoEstadoOp) {
         const op = await this.operRepo.findOne({ where: { id: cheque.operacionId } });
         if (op && op.estado !== ESTADO_OP.COBRADO && op.estado !== ESTADO_OP.CERRADO) {
-          const nota = todosCobrados
+          const nota = nuevoEstadoOp === ESTADO_OP.COBRADO
             ? 'Todos los cheques cobrados — operación cerrada automáticamente'
             : 'Cheques con resultado mixto (devueltos/protestados)';
           const bitacora = [...(op.bitacora ?? []), {
             fecha: new Date().toISOString(),
-            de: op.estado,
-            a: nuevoEstadoOp,
+            de:    op.estado,
+            a:     nuevoEstadoOp,
             nota,
-            tipo: 'ESTADO',
+            tipo:  'ESTADO',
           }];
           await this.operRepo.update(cheque.operacionId, { estado: nuevoEstadoOp, bitacora });
         }

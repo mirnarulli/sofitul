@@ -56,8 +56,13 @@ function normalizarPJ(data: Partial<ContactoPJ>): Partial<ContactoPJ> {
   };
 }
 
-function diffObjects(before: any, after: any): { campo: string; anterior: any; nuevo: any }[] {
-  const cambios: { campo: string; anterior: any; nuevo: any }[] = [];
+type AnyRecord = Record<string, unknown>;
+
+function diffObjects(
+  before: AnyRecord | null | undefined,
+  after: AnyRecord,
+): { campo: string; anterior: unknown; nuevo: unknown }[] {
+  const cambios: { campo: string; anterior: unknown; nuevo: unknown }[] = [];
   for (const key of Object.keys(after)) {
     if (key === 'id' || key === 'createdAt' || key === 'updatedAt') continue;
     const prev = before?.[key];
@@ -123,7 +128,7 @@ export class ContactosService {
     await this.pfRepo.update(id, data);
     const after = await this.pfRepo.findOne({ where: { id } });
 
-    const cambios = diffObjects(before, data);
+    const cambios = diffObjects(before as unknown as AnyRecord, data as unknown as AnyRecord);
     if (cambios.length > 0) {
       await this.bitacora.log({
         usuarioId: userId, usuarioNombre: userNombre,
@@ -172,7 +177,7 @@ export class ContactosService {
     await this.pjRepo.update(id, data);
     const after = await this.pjRepo.findOne({ where: { id } });
 
-    const cambios = diffObjects(before, data);
+    const cambios = diffObjects(before as unknown as AnyRecord, data as unknown as AnyRecord);
     if (cambios.length > 0) {
       await this.bitacora.log({
         usuarioId: userId, usuarioNombre: userNombre,
@@ -195,7 +200,11 @@ export class ContactosService {
   }
 
   // ── Búsqueda unificada por documento ─────────────────────────────────────
-  async buscarPorDoc(doc: string): Promise<{ tipo: 'pf' | 'pj'; data: any } | null> {
+  async buscarPorDoc(doc: string): Promise<
+    | { tipo: 'pf'; data: ContactoPF }
+    | { tipo: 'pj'; data: ContactoPJ }
+    | null
+  > {
     const pf = await this.findPFByDoc(doc);
     if (pf) return { tipo: 'pf', data: pf };
     const pj = await this.findPJByRuc(doc);
@@ -206,7 +215,7 @@ export class ContactosService {
   // ── Operaciones por contacto ──────────────────────────────────────────────
   async getOperacionesByContacto(tipo: string, id: string) {
     return this.operRepo.find({
-      where: { contactoTipo: tipo as any, contactoId: id },
+      where: { contactoTipo: tipo as 'pf' | 'pj', contactoId: id },
       order: { createdAt: 'DESC' },
     });
   }

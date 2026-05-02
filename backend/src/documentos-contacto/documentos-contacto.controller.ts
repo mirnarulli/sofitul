@@ -9,6 +9,10 @@ import { extname, join } from 'path';
 import * as fs from 'fs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DocumentosContactoService } from './documentos-contacto.service';
+import { CreateTipoDocumentoAdjuntoDto } from './dto/create-tipo.dto';
+import { UpdateTipoDocumentoAdjuntoDto } from './dto/update-tipo.dto';
+import { CreateDocumentoContactoDto } from './dto/create-documento.dto';
+import { UpdateDocumentoContactoDto } from './dto/update-documento.dto';
 
 // ── Multer config ───────────────────────────────────────────────────────────
 function docStorage() {
@@ -25,7 +29,11 @@ function docStorage() {
   });
 }
 
-function docFileFilter(_req: any, file: any, cb: any) {
+function docFileFilter(
+  _req: Express.Request,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) {
   const allowedExt  = ['.pdf', '.jpg', '.jpeg', '.png'];
   const allowedMime = ['application/pdf', 'image/jpeg', 'image/png'];
   const extOk  = allowedExt.includes(extname(file.originalname).toLowerCase());
@@ -52,10 +60,10 @@ export class DocumentosContactoController {
   findTiposActivos() { return this.svc.findTiposActivos(); }
 
   @Post('tipos-documento-adjunto')
-  createTipo(@Body() b: any) { return this.svc.createTipo(b); }
+  createTipo(@Body() b: CreateTipoDocumentoAdjuntoDto) { return this.svc.createTipo(b); }
 
   @Put('tipos-documento-adjunto/:id')
-  updateTipo(@Param('id') id: string, @Body() b: any) { return this.svc.updateTipo(id, b); }
+  updateTipo(@Param('id') id: string, @Body() b: UpdateTipoDocumentoAdjuntoDto) { return this.svc.updateTipo(id, b); }
 
   // ── Documentos del contacto ──
 
@@ -69,7 +77,7 @@ export class DocumentosContactoController {
   @Post('documentos-contacto')
   @UseInterceptors(FileInterceptor('file', UPLOAD_OPTS))
   async create(
-    @Body() body: any,
+    @Body() body: CreateDocumentoContactoDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     const url = file ? `/uploads/documentos-contacto/${file.filename}` : undefined;
@@ -78,7 +86,7 @@ export class DocumentosContactoController {
 
   /** Actualizar solo metadatos (fecha, observaciones) */
   @Put('documentos-contacto/:id')
-  update(@Param('id') id: string, @Body() b: any) {
+  update(@Param('id') id: string, @Body() b: UpdateDocumentoContactoDto) {
     return this.svc.update(id, b);
   }
 

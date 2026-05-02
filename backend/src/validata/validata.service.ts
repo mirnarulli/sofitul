@@ -189,8 +189,8 @@ export class ValidataService {
           return token;
         }
         lastError = `Respuesta sin token: ${JSON.stringify(resp).slice(0, 200)}`;
-      } catch (err: any) {
-        lastError = err.message;
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err.message : String(err);
       }
     }
 
@@ -209,9 +209,9 @@ export class ValidataService {
     origen?: string,
   ): Promise<{
     consultaId: string;
-    ficha: any;
-    nomina: any;
-    familiares: any[];
+    ficha: unknown;
+    nomina: unknown;
+    familiares: Record<string, unknown>[];
     error?: string;
   }> {
     const [token, { url }] = await Promise.all([this.getToken(), this.getCredenciales()]);
@@ -241,16 +241,15 @@ export class ValidataService {
     }
 
     // ── Cross-reference familiares con clientes locales ─────────────────────
-    const raw: any[] =
-      ficha?.familiares        ??
-      ficha?.vinculosFamiliares ??
-      ficha?.vinculaciones     ??
+    const raw: Record<string, unknown>[] =
+      (ficha as Record<string, unknown>)?.familiares        as Record<string, unknown>[] ??
+      (ficha as Record<string, unknown>)?.vinculosFamiliares as Record<string, unknown>[] ??
+      (ficha as Record<string, unknown>)?.vinculaciones      as Record<string, unknown>[] ??
       [];
 
     const familiares = await Promise.all(
-      raw.map(async (f: any) => {
-        const cedFam: string | undefined =
-          f.cedula ?? f.nroDocumento ?? f.documento ?? f.ci;
+      raw.map(async (f: Record<string, unknown>) => {
+        const cedFam = (f.cedula ?? f.nroDocumento ?? f.documento ?? f.ci) as string | undefined;
         if (!cedFam) return { ...f, esCliente: false, contactoId: null };
 
         try {
@@ -271,7 +270,7 @@ export class ValidataService {
       cedula,
       usuarioEmail: usuarioEmail ?? null,
       origen:       origen       ?? null,
-      respuestaRaw: { ficha, nomina, familiares } as any,
+      respuestaRaw: { ficha, nomina, familiares } as object,
       errorMsg:     errores.length ? errores.join(' | ') : null,
       estado,
     });
@@ -320,7 +319,7 @@ export class ValidataService {
     validata_user?: string;
     validata_pass?: string;
   }): Promise<{ ok: boolean }> {
-    const tasks: Promise<any>[] = [];
+    const tasks: Promise<unknown>[] = [];
     if (data.validata_url  !== undefined) tasks.push(this.confSvc.set('validata_url',  data.validata_url));
     if (data.validata_user !== undefined) tasks.push(this.confSvc.set('validata_user', data.validata_user));
     if (data.validata_pass !== undefined) tasks.push(this.confSvc.set('validata_pass', data.validata_pass));
@@ -335,8 +334,8 @@ export class ValidataService {
     try {
       const token = await this.getToken();
       return { ok: true, mensaje: 'Conexión exitosa con VALIDATA.', token: token.slice(0, 20) + '...' };
-    } catch (err: any) {
-      return { ok: false, mensaje: err.message ?? 'Error desconocido' };
+    } catch (err: unknown) {
+      return { ok: false, mensaje: err instanceof Error ? err.message : 'Error desconocido' };
     }
   }
 }
