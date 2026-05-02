@@ -15,7 +15,8 @@ export default function Login() {
     setLoading(true);
     try {
       const data = await authApi.login(email, password);
-      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('token',         data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
       localStorage.setItem('usuario', JSON.stringify(data.usuario));
       navigate('/dashboard');
     } catch (err: any) {

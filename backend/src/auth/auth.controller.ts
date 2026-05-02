@@ -9,6 +9,7 @@ import { OlvidePasswordDto } from './dto/olvide-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { CambiarPasswordDto } from './dto/cambiar-password.dto';
 import { InvitarDto } from './dto/invitar.dto';
+import { RefreshDto } from './dto/refresh.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -57,6 +58,11 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   cambiarPassword(@Body() body: CambiarPasswordDto, @Req() req: { user: { id: string } }) {
     return this.authService.cambiarPassword(req.user.id, body.passwordActual, body.passwordNuevo);
+  }
+
+  @Post('refresh')
+  refresh(@Body() body: RefreshDto) {
+    return this.authService.refresh(body.refresh_token);
   }
 
   @Get('health')

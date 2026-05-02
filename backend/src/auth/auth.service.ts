@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
@@ -7,12 +7,25 @@ import { BitacoraService } from '../bitacora/bitacora.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private mailService: MailService,
     private bitacora: BitacoraService,
   ) {}
+
+  // ── Token helpers ─────────────────────────────────────────────────────────
+  private generateTokens(payload: { sub: string; email: string; rolId: string | null; rolCodigo: string | null }) {
+    const access_token  = this.jwtService.sign(payload);
+    const refresh_token = this.jwtService.sign(
+      { ...payload, type: 'refresh' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as any },
+    );
+    return { access_token, refresh_token };
+  }
 
   async login(email: string, password: string, ip?: string) {
     const usuario = await this.usersService.findByEmail(email);
@@ -44,9 +57,10 @@ export class AuthService {
     });
 
     const payload = { sub: usuario.id, email: usuario.email, rolId: usuario.rolId, rolCodigo };
+    const tokens  = this.generateTokens(payload);
 
     return {
-      access_token: this.jwtService.sign(payload),
+      ...tokens,
       usuario: {
         id:             usuario.id,
         email:          usuario.email,
@@ -88,8 +102,9 @@ export class AuthService {
     const rol = await this.usersService.getRolById(usuario.rolId);
     const rolCodigo = rol?.codigo ?? null;
     const payload = { sub: usuario.id, email: usuario.email, rolId: usuario.rolId, rolCodigo };
+    const tokens  = this.generateTokens(payload);
     return {
-      access_token: this.jwtService.sign(payload),
+      ...tokens,
       usuario: { id: usuario.id, email: usuario.email, primerNombre: usuario.primerNombre, primerApellido: usuario.primerApellido, rolCodigo },
     };
   }
@@ -141,5 +156,32 @@ export class AuthService {
     const hashed = await bcrypt.hash(passwordNuevo, 10);
     await this.usersService.actualizarPasswordHash(userId, hashed);
     return { mensaje: 'Contraseña actualizada correctamente' };
+  }
+
+  // ── Refresh Token ─────────────────────────────────────────────────────────
+  async refresh(refreshToken: string) {
+    let decoded: Record<string, unknown>;
+    try {
+      decoded = this.jwtService.verify(refreshToken) as Record<string, unknown>;
+    } catch {
+      throw new UnauthorizedException('Refresh token inválido o expirado');
+    }
+
+    if (decoded['type'] !== 'refresh') {
+      throw new UnauthorizedException('Token no es de tipo refresh');
+    }
+
+    const userId = decoded['sub'] as string;
+    const usuario = await this.usersService.findById(userId);
+    if (!usuario || !usuario.activo || usuario.bloqueado) {
+      throw new UnauthorizedException('Usuario inactivo o bloqueado');
+    }
+
+    const rol      = await this.usersService.getRolById(usuario.rolId);
+    const rolCodigo = rol?.codigo ?? null;
+    const payload  = { sub: usuario.id, email: usuario.email, rolId: usuario.rolId, rolCodigo };
+
+    this.logger.log(`Token renovado para ${usuario.email}`);
+    return this.generateTokens(payload);
   }
 }
