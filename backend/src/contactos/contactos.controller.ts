@@ -3,6 +3,10 @@ import { ContactosService } from './contactos.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard }   from '../auth/roles.guard';
 import { Roles }        from '../auth/roles.decorator';
+import { CreateContactoPFDto } from './dto/create-contacto-pf.dto';
+import { UpdateContactoPFDto } from './dto/update-contacto-pf.dto';
+import { CreateContactoPJDto } from './dto/create-contacto-pj.dto';
+import { UpdateContactoPJDto } from './dto/update-contacto-pj.dto';
 
 @Controller('contactos')
 @UseGuards(JwtAuthGuard)
@@ -38,7 +42,7 @@ export class ContactosController {
   @Post('pf')
   @UseGuards(RolesGuard)
   @Roles('SUPERADMIN', 'ADMIN')
-  createPF(@Body() b: any, @Request() req: any) {
+  createPF(@Body() b: CreateContactoPFDto, @Request() req: { user?: { id?: string; primerNombre?: string; primerApellido?: string } }) {
     const u = req.user;
     return this.svc.createPF(b, u?.id, `${u?.primerNombre ?? ''} ${u?.primerApellido ?? ''}`.trim());
   }
@@ -46,7 +50,7 @@ export class ContactosController {
   @Put('pf/:id')
   @UseGuards(RolesGuard)
   @Roles('SUPERADMIN', 'ADMIN')
-  updatePF(@Param('id') id: string, @Body() b: any, @Request() req: any) {
+  updatePF(@Param('id') id: string, @Body() b: UpdateContactoPFDto, @Request() req: { user?: { id?: string; primerNombre?: string; primerApellido?: string } }) {
     const u = req.user;
     return this.svc.updatePF(id, b, u?.id, `${u?.primerNombre ?? ''} ${u?.primerApellido ?? ''}`.trim());
   }
@@ -64,7 +68,7 @@ export class ContactosController {
   @Post('pj')
   @UseGuards(RolesGuard)
   @Roles('SUPERADMIN', 'ADMIN')
-  createPJ(@Body() b: any, @Request() req: any) {
+  createPJ(@Body() b: CreateContactoPJDto, @Request() req: { user?: { id?: string; primerNombre?: string; primerApellido?: string } }) {
     const u = req.user;
     return this.svc.createPJ(b, u?.id, `${u?.primerNombre ?? ''} ${u?.primerApellido ?? ''}`.trim());
   }
@@ -72,7 +76,7 @@ export class ContactosController {
   @Put('pj/:id')
   @UseGuards(RolesGuard)
   @Roles('SUPERADMIN', 'ADMIN')
-  updatePJ(@Param('id') id: string, @Body() b: any, @Request() req: any) {
+  updatePJ(@Param('id') id: string, @Body() b: UpdateContactoPJDto, @Request() req: { user?: { id?: string; primerNombre?: string; primerApellido?: string } }) {
     const u = req.user;
     return this.svc.updatePJ(id, b, u?.id, `${u?.primerNombre ?? ''} ${u?.primerApellido ?? ''}`.trim());
   }

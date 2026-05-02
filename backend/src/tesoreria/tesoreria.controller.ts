@@ -5,6 +5,7 @@ import { RolesGuard }   from '../auth/roles.guard';
 import { Roles }        from '../auth/roles.decorator';
 import { RegistrarDesembolsoDto } from './dto/registrar-desembolso.dto';
 import { RegistrarPagareDto }     from './dto/registrar-pagare.dto';
+import { RegistrarCobroDto }      from './dto/registrar-cobro.dto';
 
 @Controller('tesoreria')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,8 +37,8 @@ export class TesoreriaController {
   @Post('cheques/:chequeId/cobrar')
   registrarCobro(
     @Param('chequeId') chequeId: string,
-    @Body() b: { fechaCobro: string; nroReferencia?: string; notaCobro?: string },
-    @Req() req: any,
+    @Body() b: RegistrarCobroDto,
+    @Req() req: { user?: { email?: string } },
   ) {
     return this.svc.registrarCobro(chequeId, { ...b, usuarioEmail: req.user?.email });
   }
