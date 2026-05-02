@@ -4,12 +4,14 @@ import { Repository } from 'typeorm';
 import { MedioPago } from '../entities';
 
 const MEDIOS_PAGO_SEED = [
-  { codigo: 'EFECTIVO',        nombre: 'Efectivo',         esDigital: false, requiereReferencia: false, requiereBanco: false, orden: 1 },
-  { codigo: 'TRANSFERENCIA',   nombre: 'Transferencia',    esDigital: true,  requiereReferencia: true,  requiereBanco: true,  orden: 2 },
-  { codigo: 'CHEQUE',          nombre: 'Cheque',           esDigital: true,  requiereReferencia: true,  requiereBanco: true,  orden: 3 },
-  { codigo: 'QR_CODE',         nombre: 'QR Code',          esDigital: true,  requiereReferencia: true,  requiereBanco: false, orden: 4 },
-  { codigo: 'TARJETA_DEBITO',  nombre: 'Tarjeta de Débito',esDigital: true,  requiereReferencia: true,  requiereBanco: false, orden: 5 },
-  { codigo: 'TARJETA_CREDITO', nombre: 'Tarjeta de Crédito',esDigital: true, requiereReferencia: true,  requiereBanco: false, orden: 6 },
+  { codigo: 'EFECTIVO',          nombre: 'Efectivo',              esDigital: false, requiereReferencia: false, requiereBanco: false, orden: 1 },
+  { codigo: 'TRANSFERENCIA',     nombre: 'Transferencia bancaria', esDigital: true,  requiereReferencia: true,  requiereBanco: true,  orden: 2 },
+  { codigo: 'DEPOSITO',          nombre: 'Depósito bancario',      esDigital: false, requiereReferencia: true,  requiereBanco: true,  orden: 3 },
+  { codigo: 'CHEQUE',            nombre: 'Cheque',                esDigital: false, requiereReferencia: true,  requiereBanco: true,  orden: 4 },
+  { codigo: 'TARJETA_DEBITO',    nombre: 'Tarjeta de Débito',      esDigital: true,  requiereReferencia: true,  requiereBanco: false, orden: 5 },
+  { codigo: 'TARJETA_CREDITO',   nombre: 'Tarjeta de Crédito',     esDigital: true,  requiereReferencia: true,  requiereBanco: false, orden: 6 },
+  { codigo: 'BILLETERA_DIGITAL', nombre: 'Billetera digital',      esDigital: true,  requiereReferencia: true,  requiereBanco: false, orden: 7 },
+  { codigo: 'QR_CODE',           nombre: 'QR Code',               esDigital: true,  requiereReferencia: true,  requiereBanco: false, orden: 8 },
 ];
 
 @Injectable()
