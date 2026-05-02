@@ -129,6 +129,7 @@ echo "  → Backend OK"
 
 echo "  → Desplegando frontend..."
 mkdir -p /var/www/sofitul
+rm -rf /var/www/sofitul/*
 tar -xzf /tmp/sofitul_frontend_dist.tar.gz -C /var/www/sofitul/
 rm -f /tmp/sofitul_frontend_dist.tar.gz
 echo "  → Frontend OK"

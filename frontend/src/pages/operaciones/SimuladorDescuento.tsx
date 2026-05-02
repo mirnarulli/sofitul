@@ -250,6 +250,12 @@ export default function SimuladorDescuento() {
     return 'ok';
   };
 
+  // Días desde fechaOperacion hasta vencimiento — independiente del monto
+  const calcDias = (venc: string): number => {
+    if (!venc || !fechaOperacion) return 0;
+    return Math.max(0, calcularDias(fechaOperacion, venc));
+  };
+
   // ── Aplicar tasa global ───────────────────────────────────────────────
   const [tasaGlobal, setTasaGlobal] = useState('');
   const aplicarTasaGlobal = () => {
@@ -579,6 +585,7 @@ export default function SimuladorDescuento() {
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">RUC/CI Librador</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">N° Cheque</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Vencimiento</th>
+                <th className="text-center px-2 py-2 text-xs font-medium text-gray-500">Días</th>
                 <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Monto (Gs.)</th>
                 <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Tasa %/mes</th>
                 <th className="w-8"></th>
@@ -694,6 +701,23 @@ export default function SimuladorDescuento() {
                       )}
                     </td>
 
+                    {/* Días — calculado desde fechaOperacion, independiente del monto */}
+                    <td className="px-1 py-2 text-center align-middle">
+                      {c.vencimiento ? (
+                        <span className={`text-xs font-mono font-semibold px-1.5 py-0.5 rounded ${
+                          vencInvalido
+                            ? 'bg-red-100 text-red-700'
+                            : calcDias(c.vencimiento) > 0
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'text-gray-400'
+                        }`}>
+                          {calcDias(c.vencimiento) > 0 ? `${calcDias(c.vencimiento)}d` : '—'}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </td>
+
                     {/* Monto */}
                     <td className="px-1 py-1">
                       <input value={c.monto} onChange={e => updateCheque(i, 'monto', e.target.value)}
@@ -733,7 +757,7 @@ export default function SimuladorDescuento() {
       </div>
 
       {/* ── Tabla de liquidación ── */}
-      {totalCheques > 0 && (
+      {cheques.some(c => c.vencimiento) && (
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
             4 · Tabla de Liquidación
@@ -753,23 +777,40 @@ export default function SimuladorDescuento() {
               </thead>
               <tbody>
                 {cheques.map((c, i) => {
-                  const l = liquidacion[i];
-                  if (!l.monto) return null;
+                  if (!c.vencimiento) return null;
+                  const l   = liquidacion[i];
+                  const dias = calcDias(c.vencimiento);
+                  const vs   = vencStatus(c.vencimiento);
                   return (
                     <tr key={i} className="border-b border-gray-100">
                       <td className="px-3 py-2 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-3 py-2 text-gray-700">
-                        {c.vencimiento ? new Date(c.vencimiento + 'T00:00:00').toLocaleDateString('es-PY') : '—'}
+                        {new Date(c.vencimiento + 'T00:00:00').toLocaleDateString('es-PY')}
+                        {(vs === 'pasada' || vs === 'excede180') && (
+                          <span className="ml-1 text-red-500 text-xs">⚠</span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-center font-mono">
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${l.dias <= 15 ? 'bg-red-100 text-red-700' : l.dias <= 30 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
-                          {l.dias}d
+                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                          vs === 'pasada' || vs === 'excede180'
+                            ? 'bg-red-100 text-red-700'
+                            : dias <= 15 ? 'bg-red-100 text-red-700'
+                            : dias <= 30 ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-green-100 text-green-700'
+                        }`}>
+                          {dias > 0 ? `${dias}d` : '—'}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-right font-mono">{formatGs(l.monto)}</td>
-                      <td className="px-3 py-2 text-center text-blue-700 font-medium">{c.tasaMensual || 0}%</td>
-                      <td className="px-3 py-2 text-right font-mono text-orange-600">{formatGs(l.interes)}</td>
-                      <td className="px-3 py-2 text-right font-mono text-green-700">{formatGs(l.amortizacion)}</td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        {l.monto > 0 ? formatGs(l.monto) : <span className="text-gray-300 text-xs">sin monto</span>}
+                      </td>
+                      <td className="px-3 py-2 text-center text-blue-700 font-medium">{c.tasaMensual || '—'}%</td>
+                      <td className="px-3 py-2 text-right font-mono text-orange-600">
+                        {l.monto > 0 ? formatGs(l.interes) : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-green-700">
+                        {l.monto > 0 ? formatGs(l.amortizacion) : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
                     </tr>
                   );
                 })}
