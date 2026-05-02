@@ -109,7 +109,8 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const [collapsed,    setCollapsed]    = useState(() => localStorage.getItem(SIDEBAR_KEY) === 'true');
   const [openModuleId, setOpenModuleId] = useState<string | null>(() => detectModule(location.pathname));
   const [mobileOpen,   setMobileOpen]   = useState(false);
-  const [alertasPagare, setAlertasPagare] = useState(0);
+  const [alertasPagare,      setAlertasPagare]      = useState(0);
+  const [alertasVencimiento, setAlertasVencimiento] = useState(0);
 
   const usuario   = JSON.parse(localStorage.getItem('usuario') || '{}');
   const rolCodigo = usuario.rolCodigo ?? '';
@@ -121,9 +122,12 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   }, [location.pathname]);
 
   useEffect(() => {
-    import('../services/operacionesApi').then(({ tesoreriaApi }) => {
+    import('../services/operacionesApi').then(({ tesoreriaApi, operacionesApi }) => {
       tesoreriaApi.getAlertasPagare()
         .then((data: any[]) => setAlertasPagare(data.length))
+        .catch(() => {});
+      operacionesApi.getAlertasVencimiento(7)
+        .then((data: any[]) => setAlertasVencimiento(data.length))
         .catch(() => {});
     });
   }, []);
@@ -217,6 +221,15 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         <BusquedaGlobal />
 
         <div className="flex items-center gap-2">
+          {alertasVencimiento > 0 && (
+            <Link to="/operaciones/dashboard" title="Operaciones por vencer en 7 días"
+              className="relative p-2 rounded-lg text-orange-500 hover:bg-orange-50">
+              <Bell size={18} />
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-orange-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                {alertasVencimiento}
+              </span>
+            </Link>
+          )}
           {alertasPagare > 0 && (
             <Link to="/tesoreria" className="relative p-2 rounded-lg text-amber-500 hover:bg-amber-50">
               <Bell size={18} />

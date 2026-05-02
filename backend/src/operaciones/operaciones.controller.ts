@@ -111,6 +111,11 @@ export class OperacionesController {
     return this.svc.busquedaGlobal(q);
   }
 
+  @Get('alertas-vencimiento')
+  alertasVencimiento(@Query('dias', new DefaultValuePipe('14')) dias: string) {
+    return this.svc.getAlertasVencimiento(+dias);
+  }
+
   @Post('calcular-interes')
   calcularInteres(@Body() b: CalcularInteresDto) {
     return { interes: OperacionesService.calcularInteres(b.monto, b.tasaMensual, b.dias) };

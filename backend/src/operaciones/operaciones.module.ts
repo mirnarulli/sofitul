@@ -7,6 +7,7 @@ import { EstadoOperacion } from './entities/estado-operacion.entity';
 import { EstadoTransicion } from './entities/estado-transicion.entity';
 import { OperacionesService } from './operaciones.service';
 import { OperacionesController } from './operaciones.controller';
+import { OperacionesCron } from './operaciones.cron';
 import { FeriadosModule } from '../feriados/feriados.module';
 
 @Module({
@@ -14,7 +15,7 @@ import { FeriadosModule } from '../feriados/feriados.module';
     TypeOrmModule.forFeature([Operacion, ChequeDetalle, Cuota, EstadoOperacion, EstadoTransicion]),
     FeriadosModule,
   ],
-  providers: [OperacionesService],
+  providers: [OperacionesService, OperacionesCron],
   controllers: [OperacionesController],
   exports: [OperacionesService],
 })

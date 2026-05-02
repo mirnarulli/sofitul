@@ -356,6 +356,56 @@ export class OperacionesService {
     });
   }
 
+  // ── Cron: marcar vencidas → MORA ─────────────────────────────────────────
+  /**
+   * Recorre operaciones activas cuya fecha_vencimiento ya pasó y las mueve a MORA.
+   * Llamado por el cron diario; no valida la matriz de transiciones (transición de sistema).
+   */
+  async procesarVencidas(): Promise<{ procesadas: number; ids: string[] }> {
+    const ESTADOS_ACTIVOS = ['EN_COBRANZA', 'DESEMBOLSADO', 'PRORROGADO', 'RENOVADO'];
+
+    const vencidas = await this.operRepo
+      .createQueryBuilder('o')
+      .where('o.estado IN (:...estados)', { estados: ESTADOS_ACTIVOS })
+      .andWhere('o.fechaVencimiento IS NOT NULL')
+      .andWhere("o.fechaVencimiento::date < CURRENT_DATE")
+      .getMany();
+
+    if (vencidas.length === 0) return { procesadas: 0, ids: [] };
+
+    const ids: string[] = [];
+    const ahora = new Date().toISOString();
+
+    for (const op of vencidas) {
+      const bitacora = [
+        ...(op.bitacora ?? []),
+        {
+          fecha:   ahora,
+          de:      op.estado,
+          a:       'MORA',
+          nota:    'Vencimiento automático por cron diario',
+          usuario: 'SISTEMA',
+        },
+      ];
+      await this.operRepo.update(op.id, { estado: 'MORA', bitacora });
+      ids.push(op.id);
+    }
+
+    return { procesadas: vencidas.length, ids };
+  }
+
+  // ── Alertas de vencimiento próximo ────────────────────────────────────────
+  async getAlertasVencimiento(dias = 14) {
+    const ESTADOS_ACTIVOS = ['EN_COBRANZA', 'DESEMBOLSADO', 'PRORROGADO', 'RENOVADO'];
+    return this.operRepo
+      .createQueryBuilder('o')
+      .where('o.estado IN (:...estados)', { estados: ESTADOS_ACTIVOS })
+      .andWhere('o.fechaVencimiento IS NOT NULL')
+      .andWhere("o.fechaVencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + :dias", { dias })
+      .orderBy('o.fechaVencimiento', 'ASC')
+      .getMany();
+  }
+
   // ── Búsqueda global ───────────────────────────────────────────────────────
   async busquedaGlobal(q: string): Promise<{ tipo: string; id: string; titulo: string; subtitulo: string; url: string }[]> {
     if (!q || q.trim().length < 2) return [];
