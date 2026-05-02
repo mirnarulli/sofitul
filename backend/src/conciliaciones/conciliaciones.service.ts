@@ -22,24 +22,45 @@ export class ConciliacionesService {
     private ds: DataSource,
   ) {}
 
-  findAll(params: FindConciliacionesParams) {
-    const qb = this.repo.createQueryBuilder('c').orderBy('c.fechaPeriodo', 'DESC');
-    if (params.cobradorId) qb.andWhere('c.cobradorId = :cobradorId', { cobradorId: params.cobradorId });
-    if (params.cajaId)     qb.andWhere('c.cajaId = :cajaId',         { cajaId: params.cajaId });
-    if (params.estado)     qb.andWhere('c.estado = :estado',         { estado: params.estado });
-    if (params.fechaDesde) qb.andWhere('c.fechaPeriodo >= :desde',   { desde: params.fechaDesde });
-    if (params.fechaHasta) qb.andWhere('c.fechaPeriodo <= :hasta',   { hasta: params.fechaHasta });
-    return qb.getMany();
+  async findAll(params: FindConciliacionesParams) {
+    const conds: string[] = [];
+    const vals: unknown[] = [];
+
+    if (params.cobradorId) { vals.push(params.cobradorId); conds.push(`c.cobrador_id = $${vals.length}`); }
+    if (params.cajaId)     { vals.push(params.cajaId);     conds.push(`c.caja_id = $${vals.length}`); }
+    if (params.estado)     { vals.push(params.estado);     conds.push(`c.estado = $${vals.length}`); }
+    if (params.fechaDesde) { vals.push(params.fechaDesde); conds.push(`c.fecha_periodo >= $${vals.length}`); }
+    if (params.fechaHasta) { vals.push(params.fechaHasta); conds.push(`c.fecha_periodo <= $${vals.length}`); }
+
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    return this.ds.query(`
+      SELECT c.*,
+        e.nombre   AS cobrador_nombre,
+        e.apellido AS cobrador_apellido
+      FROM conciliaciones c
+      LEFT JOIN empleados e ON e.id = c.cobrador_id
+      ${where}
+      ORDER BY c.fecha_periodo DESC, c.created_at DESC
+    `, vals);
   }
 
   async findById(id: string) {
     const conc = await this.repo.findOne({ where: { id } });
     if (!conc) throw new NotFoundException(`Conciliación ${id} no encontrada`);
 
-    const transacciones = await this.ds.query(
-      `SELECT * FROM transacciones WHERE conciliacion_id = $1 ORDER BY fecha_transaccion ASC`,
-      [id],
-    );
+    const transacciones = await this.ds.query(`
+      SELECT
+        id, tipo, estado,
+        fecha_transaccion  AS fecha,
+        monto_total        AS monto,
+        nro_referencia     AS referencia,
+        nro_recibo         AS "nroRecibo",
+        cobrador_id        AS "cobradorId",
+        operacion_id       AS "operacionId"
+      FROM transacciones
+      WHERE conciliacion_id = $1
+      ORDER BY fecha_transaccion ASC
+    `, [id]);
     return { ...conc, transacciones };
   }
 
@@ -110,11 +131,12 @@ export class ConciliacionesService {
     if (conc.estado === 'CONCILIADA') throw new ForbiddenException('No se puede modificar una conciliación ya conciliada');
 
     const hoy = new Date().toISOString().split('T')[0];
-    const diferencia = Number(body.montoDeclarado) - Number(body.montoRecibido);
+    const montoRec   = body.montoRecibido != null ? Number(body.montoRecibido) : 0;
+    const diferencia = Number(body.montoDeclarado) - montoRec;
 
     await this.repo.update(id, {
       montoDeclarado: body.montoDeclarado,
-      montoRecibido: body.montoRecibido,
+      montoRecibido: montoRec,
       diferencia,
       estado: 'CERRADA',
       cerradoPorId: userId,
@@ -141,5 +163,26 @@ export class ConciliacionesService {
 
     await this.repo.update(id, { estado: 'ABIERTA' });
     return this.repo.findOne({ where: { id } });
+  }
+
+  async agregarTransaccion(conciliacionId: string, transaccionId: string) {
+    const conc = await this.repo.findOne({ where: { id: conciliacionId } });
+    if (!conc) throw new NotFoundException(`Conciliación ${conciliacionId} no encontrada`);
+    if (conc.estado !== 'ABIERTA') throw new BadRequestException('Solo se pueden agregar transacciones a conciliaciones en estado ABIERTA');
+
+    await this.ds.query(
+      `UPDATE transacciones SET conciliacion_id = $1
+       WHERE id = $2 AND (conciliacion_id IS NULL OR conciliacion_id = $1)`,
+      [conciliacionId, transaccionId],
+    );
+
+    // Recalculate montoEsperado
+    const [row] = await this.ds.query(
+      `SELECT COALESCE(SUM(monto_total), 0)::bigint AS total
+       FROM transacciones WHERE conciliacion_id = $1 AND tipo = 'PAGO' AND estado = 'APLICADO'`,
+      [conciliacionId],
+    );
+    await this.repo.update(conciliacionId, { montoEsperado: Number(row?.total ?? 0) });
+    return this.findById(conciliacionId);
   }
 }

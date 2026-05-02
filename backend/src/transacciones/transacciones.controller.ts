@@ -11,6 +11,16 @@ import { ReversarTransaccionDto } from './dto/reversar-transaccion.dto';
 export class TransaccionesController {
   constructor(private svc: TransaccionesService) {}
 
+  @Get('disponibles')
+  findDisponibles(
+    @Query('cobradorId') cobradorId?: string,
+    @Query('cajaId')     cajaId?: string,
+    @Query('fechaDesde') fechaDesde?: string,
+    @Query('fechaHasta') fechaHasta?: string,
+  ) {
+    return this.svc.findDisponibles({ cobradorId, cajaId, fechaDesde, fechaHasta });
+  }
+
   @Get('operacion/:operacionId')
   findByOperacion(@Param('operacionId') operacionId: string) {
     return this.svc.findByOperacion(operacionId);

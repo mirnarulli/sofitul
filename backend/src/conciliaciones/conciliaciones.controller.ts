@@ -56,4 +56,12 @@ export class ConciliacionesController {
     const userId = req.user?.sub ?? req.user?.id;
     return this.svc.reabrir(id, userId);
   }
+
+  @Post(':id/transacciones')
+  @Roles('SUPERADMIN', 'ADMIN')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  agregarTransaccion(@Param('id') id: string, @Body() b: { transaccionId: string }, @Req() req: any) {
+    void req;
+    return this.svc.agregarTransaccion(id, b.transaccionId);
+  }
 }

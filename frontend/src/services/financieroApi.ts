@@ -6,6 +6,8 @@ export const transaccionesApi = {
   reversar:        (id: string, b: { motivo: string })      => api.post(`/transacciones/${id}/reversar`, b).then(r => r.data),
   resumenIngresos: (params: { desde: string; hasta: string }) => api.get('/transacciones/resumen-ingresos', { params }).then(r => r.data),
   resumenMensual:  (año: number) => api.get('/transacciones/resumen-mensual', { params: { año } }).then(r => r.data),
+  getDisponibles: (params?: { cobradorId?: string; cajaId?: string; fechaDesde?: string; fechaHasta?: string }) =>
+    api.get('/transacciones/disponibles', { params }).then(r => r.data),
 };
 
 export const cargosOperacionApi = {
@@ -20,4 +22,6 @@ export const conciliacionesApi = {
   cerrar:    (id: string, b: any) => api.put(`/conciliaciones/${id}/cerrar`, b).then(r => r.data),
   conciliar: (id: string)        => api.put(`/conciliaciones/${id}/conciliar`, {}).then(r => r.data),
   reabrir:   (id: string)        => api.put(`/conciliaciones/${id}/reabrir`, {}).then(r => r.data),
+  agregarTransaccion: (id: string, transaccionId: string) =>
+    api.post(`/conciliaciones/${id}/transacciones`, { transaccionId }).then(r => r.data),
 };

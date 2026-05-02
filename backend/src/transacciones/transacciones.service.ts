@@ -36,6 +36,39 @@ export class TransaccionesService {
     }));
   }
 
+  findDisponibles(params: {
+    cobradorId?: string;
+    cajaId?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+  }) {
+    const conds: string[] = [`tipo = 'PAGO'`, `estado = 'APLICADO'`, `conciliacion_id IS NULL`];
+    const vals: unknown[] = [];
+
+    if (params.cobradorId) { vals.push(params.cobradorId); conds.push(`cobrador_id = $${vals.length}`); }
+    if (params.cajaId)     { vals.push(params.cajaId);     conds.push(`caja_id = $${vals.length}`); }
+    if (params.fechaDesde) { vals.push(params.fechaDesde); conds.push(`fecha_valor >= $${vals.length}`); }
+    if (params.fechaHasta) { vals.push(params.fechaHasta); conds.push(`fecha_valor <= $${vals.length}`); }
+
+    return this.ds.query<{
+      id: string; tipo: string; fecha: string; monto: number;
+      referencia: string; nroRecibo: string; operacionId: string;
+    }[]>(`
+      SELECT
+        id, tipo, estado,
+        fecha_transaccion  AS fecha,
+        monto_total        AS monto,
+        nro_referencia     AS referencia,
+        nro_recibo         AS "nroRecibo",
+        operacion_id       AS "operacionId",
+        cobrador_id        AS "cobradorId"
+      FROM transacciones
+      WHERE ${conds.join(' AND ')}
+      ORDER BY fecha_transaccion DESC
+      LIMIT 200
+    `, vals);
+  }
+
   async resumenIngresos(desde: string, hasta: string) {
     const rows = await this.ds.query<{
       total: string; capital: string; interes: string;

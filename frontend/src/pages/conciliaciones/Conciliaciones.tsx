@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, X, Check, CheckSquare } from 'lucide-react';
-import { conciliacionesApi } from '../../services/financieroApi';
+import { conciliacionesApi, transaccionesApi } from '../../services/financieroApi';
 import { empleadosApi } from '../../services/rrhhApi';
 
 type EstadoConciliacion = 'ABIERTA' | 'CERRADA' | 'CONCILIADA';
@@ -48,6 +48,12 @@ export default function Conciliaciones() {
   const [showCierre,  setShowCierre]  = useState(false);
   const [formCierre,  setFormCierre]  = useState<any>({ ...VACIO_CIERRE });
   const [cerrando,    setCerrando]    = useState(false);
+
+  // Agregar transacciones
+  const [disponibles,      setDisponibles]      = useState<any[]>([]);
+  const [loadDisp,         setLoadDisp]         = useState(false);
+  const [showDisp,         setShowDisp]         = useState(false);
+  const [agregando,        setAgregando]        = useState<string | null>(null);
 
   const cargar = () => {
     setLoading(true);
@@ -109,6 +115,33 @@ export default function Conciliaciones() {
     } catch (err: any) {
       alert(err.response?.data?.message ?? 'Error en la operación.');
     }
+  };
+
+  const cargarDisponibles = async () => {
+    if (!detalle) return;
+    setLoadDisp(true);
+    try {
+      const params: any = {};
+      if (detalle.cobradorId) params.cobradorId = detalle.cobradorId;
+      if (detalle.cajaId)     params.cajaId     = detalle.cajaId;
+      const data = await transaccionesApi.getDisponibles(params);
+      setDisponibles(data);
+      setShowDisp(true);
+    } catch { /* ignore */ }
+    finally { setLoadDisp(false); }
+  };
+
+  const handleAgregarTransaccion = async (txId: string) => {
+    if (!detalle) return;
+    setAgregando(txId);
+    try {
+      const updated = await conciliacionesApi.agregarTransaccion(detalle.id, txId);
+      setDetalle(updated);
+      // Remove from disponibles list
+      setDisponibles(prev => prev.filter((t: any) => t.id !== txId));
+    } catch (err: any) {
+      alert(err.response?.data?.message ?? 'Error al agregar.');
+    } finally { setAgregando(null); }
   };
 
   const handleCerrar = async () => {
@@ -212,8 +245,8 @@ export default function Conciliaciones() {
                       {item.fechaPeriodo ? new Date(item.fechaPeriodo).toLocaleDateString('es-PY') : '—'}
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-800">
-                      {item.cobrador
-                        ? `${item.cobrador.apellido ?? ''}, ${item.cobrador.nombre ?? ''}`
+                      {item.cobrador_apellido
+                        ? `${item.cobrador_apellido}, ${item.cobrador_nombre ?? ''}`
                         : item.cobradorId ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{item.tipo ?? '—'}</td>
@@ -332,7 +365,7 @@ export default function Conciliaciones() {
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50">
                     <tr>
-                      {['Fecha', 'Tipo', 'Referencia', 'Monto'].map(h => (
+                      {['Fecha', 'N° Recibo', 'Tipo', 'Referencia', 'Monto', 'Estado'].map(h => (
                         <th key={h} className="px-3 py-2 text-left font-semibold text-gray-500 uppercase">{h}</th>
                       ))}
                     </tr>
@@ -340,14 +373,69 @@ export default function Conciliaciones() {
                   <tbody className="divide-y divide-gray-100">
                     {detalle.transacciones.map((t: any) => (
                       <tr key={t.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-gray-600">{t.fecha ? new Date(t.fecha).toLocaleDateString('es-PY') : '—'}</td>
+                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{t.fecha ? new Date(t.fecha).toLocaleDateString('es-PY') : '—'}</td>
+                        <td className="px-3 py-2 font-mono text-blue-700 text-xs">{t.nroRecibo ?? '—'}</td>
                         <td className="px-3 py-2 text-gray-600">{t.tipo ?? '—'}</td>
                         <td className="px-3 py-2 text-gray-600">{t.referencia ?? '—'}</td>
                         <td className="px-3 py-2 font-medium text-gray-800">{fmtMoneda(t.monto)}</td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${t.estado === 'APLICADO' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                            {t.estado}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Agregar transacciones disponibles — solo cuando ABIERTA */}
+            {detalle.estado === 'ABIERTA' && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Agregar transacciones</h3>
+                  <button
+                    onClick={showDisp ? () => setShowDisp(false) : cargarDisponibles}
+                    disabled={loadDisp}
+                    className="text-xs text-blue-600 border border-blue-200 px-3 py-1 rounded-lg hover:bg-blue-50 disabled:opacity-50">
+                    {loadDisp ? 'Cargando…' : showDisp ? 'Ocultar' : '+ Buscar disponibles'}
+                  </button>
+                </div>
+                {showDisp && (
+                  disponibles.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic text-center py-3">Sin transacciones disponibles para este cobrador.</p>
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            {['Fecha', 'N° Recibo', 'Monto', ''].map(h => (
+                              <th key={h} className="px-3 py-2 text-left font-semibold text-gray-500 uppercase">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {disponibles.map((t: any) => (
+                            <tr key={t.id} className="hover:bg-blue-50">
+                              <td className="px-3 py-2 text-gray-600">{t.fecha ? new Date(t.fecha).toLocaleDateString('es-PY') : '—'}</td>
+                              <td className="px-3 py-2 font-mono text-blue-700">{t.nroRecibo ?? '—'}</td>
+                              <td className="px-3 py-2 font-medium text-gray-800">{fmtMoneda(t.monto)}</td>
+                              <td className="px-3 py-2">
+                                <button
+                                  onClick={() => handleAgregarTransaccion(t.id)}
+                                  disabled={agregando === t.id}
+                                  className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50 font-medium">
+                                  {agregando === t.id ? '…' : 'Agregar'}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                )}
               </div>
             )}
 
@@ -370,12 +458,6 @@ export default function Conciliaciones() {
                     Reabrir
                   </button>
                 </>
-              )}
-              {detalle.estado === 'CONCILIADA' && (
-                <button onClick={() => handleAccion('reabrir')}
-                  className="text-sm border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50">
-                  Reabrir
-                </button>
               )}
             </div>
           </div>
