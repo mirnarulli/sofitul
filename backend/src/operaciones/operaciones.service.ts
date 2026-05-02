@@ -356,6 +356,66 @@ export class OperacionesService {
     });
   }
 
+  // ── Búsqueda global ───────────────────────────────────────────────────────
+  async busquedaGlobal(q: string): Promise<{ tipo: string; id: string; titulo: string; subtitulo: string; url: string }[]> {
+    if (!q || q.trim().length < 2) return [];
+    const term = `%${q.trim().toLowerCase()}%`;
+
+    const [operaciones, personas, empresas] = await Promise.all([
+      this.ds.query<{ id: string; nro_operacion: string; contacto_nombre: string; estado: string }[]>(`
+        SELECT id, nro_operacion, contacto_nombre, estado
+        FROM operaciones
+        WHERE LOWER(nro_operacion) LIKE $1 OR LOWER(contacto_nombre) LIKE $1 OR LOWER(contacto_doc) LIKE $1
+        ORDER BY created_at DESC LIMIT 10
+      `, [term]),
+      this.ds.query<{ id: string; primer_nombre: string; primer_apellido: string; nro_documento: string }[]>(`
+        SELECT id, primer_nombre, primer_apellido, nro_documento
+        FROM contactos_pf
+        WHERE LOWER(primer_nombre) LIKE $1 OR LOWER(primer_apellido) LIKE $1
+           OR LOWER(nro_documento) LIKE $1
+           OR LOWER(CONCAT(primer_nombre, ' ', primer_apellido)) LIKE $1
+        ORDER BY created_at DESC LIMIT 10
+      `, [term]),
+      this.ds.query<{ id: string; razon_social: string; ruc: string }[]>(`
+        SELECT id, razon_social, ruc
+        FROM contactos_pj
+        WHERE LOWER(razon_social) LIKE $1 OR LOWER(ruc) LIKE $1
+        ORDER BY created_at DESC LIMIT 10
+      `, [term]),
+    ]);
+
+    const results: { tipo: string; id: string; titulo: string; subtitulo: string; url: string }[] = [];
+
+    for (const op of operaciones) {
+      results.push({
+        tipo:      'operacion',
+        id:        op.id,
+        titulo:    op.nro_operacion,
+        subtitulo: `${op.contacto_nombre} · ${op.estado}`,
+        url:       `/operaciones/${op.id}`,
+      });
+    }
+    for (const pf of personas) {
+      results.push({
+        tipo:      'persona',
+        id:        pf.id,
+        titulo:    `${pf.primer_nombre} ${pf.primer_apellido}`,
+        subtitulo: `CI/Doc: ${pf.nro_documento}`,
+        url:       `/contactos/personas/${pf.id}`,
+      });
+    }
+    for (const pj of empresas) {
+      results.push({
+        tipo:      'empresa',
+        id:        pj.id,
+        titulo:    pj.razon_social,
+        subtitulo: `RUC: ${pj.ruc}`,
+        url:       `/contactos/empresas/${pj.id}`,
+      });
+    }
+    return results;
+  }
+
   // ── Exportación Excel ─────────────────────────────────────────────────────
   async exportToExcel(filtros: { estado?: string; tipo?: string; contactoId?: string } = {}): Promise<Buffer> {
     const qb = this.operRepo.createQueryBuilder('o').orderBy('o.fechaOperacion', 'DESC');

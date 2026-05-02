@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useLogos } from '../context/LogosContext';
 import { canView, type Modulo } from '../utils/permisos';
+import BusquedaGlobal from './BusquedaGlobal';
 
 const LayoutMountedCtx = createContext(false);
 
@@ -212,6 +213,8 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         </Link>
 
         <div className="flex-1" />
+
+        <BusquedaGlobal />
 
         <div className="flex items-center gap-2">
           {alertasPagare > 0 && (

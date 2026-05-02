@@ -16,6 +16,7 @@ export const operacionesApi = {
   getSiguientesEstados: (codigo: string)       => api.get(`/operaciones/estados-siguientes/${codigo}`).then(r => r.data),
   getTransicionesMatriz: ()                    => api.get('/operaciones/transiciones').then(r => r.data),
   saveMatriz:           (transiciones: any[])  => api.put('/operaciones/transiciones', { transiciones }).then(r => r.data),
+  busquedaGlobal:       (q: string)             => api.get('/operaciones/buscar', { params: { q } }).then(r => r.data as { tipo: string; id: string; titulo: string; subtitulo: string; url: string }[]),
   calcularInteres:      (b: any)               => api.post('/operaciones/calcular-interes', b).then(r => r.data),
   actualizarContrato: (id: string, b: { nroContratoTeDescuento?: string }) =>
     api.put(`/operaciones/${id}/contrato`, b).then(r => r.data),

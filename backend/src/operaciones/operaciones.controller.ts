@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req,
-         UseInterceptors, UploadedFile, BadRequestException, StreamableFile } from '@nestjs/common';
+         UseInterceptors, UploadedFile, BadRequestException, StreamableFile, DefaultValuePipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
@@ -104,6 +104,11 @@ export class OperacionesController {
   @Roles('SUPERADMIN')
   saveMatriz(@Body() b: { transiciones: { desdeId: string; hastaId: string }[] }) {
     return this.svc.saveMatriz(b.transiciones ?? []);
+  }
+
+  @Get('buscar')
+  busquedaGlobal(@Query('q', new DefaultValuePipe('')) q: string) {
+    return this.svc.busquedaGlobal(q);
   }
 
   @Post('calcular-interes')
