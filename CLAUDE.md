@@ -296,6 +296,90 @@ Permisos granulares sugeridos: `usuarios:ver`, `usuarios:crear`, `tesoreria:ver`
 
 ---
 
+## Refactoring progresivo — REUSAR antes de CREAR
+
+Antes de agregar cualquier componente, helper, badge, tabla o modal, **verificar primero si ya existe algo reutilizable**.
+
+### Inventario actual de componentes reutilizables
+
+**`frontend/src/components/ui/`** — UI general:
+
+| Archivo | Uso |
+|---|---|
+| `BarH.tsx` | Barra horizontal de progreso (value, max, color, height) |
+| `CalBadge.tsx` | Badge calificación A/B/C/D + constante `CALIFICACIONES` para selects |
+| `ContactField.tsx` | `<Field label>` (wrapper label+input) y `<Info label value>` (display DL) |
+| `DocTab.tsx` | Panel de gestión de documentos adjuntos a un contacto (PF y PJ) |
+| `KpiCard.tsx` | Card KPI con variantes `default` / `gradient` / `alert` |
+| `OpsTable.tsx` | Tabla de operaciones (N°, tipo, monto, vencimiento, días, estado, link) |
+| `Pill.tsx` | Pill/badge genérico con 11 colores y tamaños sm/md |
+
+**`frontend/src/components/`** — Componentes de layout y shared:
+
+| Archivo | Uso |
+|---|---|
+| `Modal.tsx` | Modal con `title`, `subtitle?`, `size?`, `onClose` |
+| `StatusBadge.tsx` | Badge de estado desde DB (consume `EstadosContext`) |
+| `CuentasTransferencia.tsx` | Panel de cuentas bancarias de un contacto |
+
+**`frontend/src/pages/contactos/`** — Co-localizados:
+
+| Archivo | Uso |
+|---|---|
+| `FinancialTables.tsx` | `MontoTable` / `ValorTable` / `RefTable` + tipos `MontoRow/ValorRow/RefRow` |
+
+**`frontend/src/utils/`** — Helpers puros:
+
+- `formatters.ts`: `formatGs`, `formatDate`, `fmtNum`, `fmtK`, `diasHasta` — **NUNCA reescribir inline**
+- `estados.ts`: `ESTADOS_VIGENTES`, `ESTADOS_TERMINALES` — **NUNCA redefinir localmente**
+
+---
+
+### Regla de extracción
+
+Cuando se detecte código duplicado o una función inline que supera ~80 líneas y no depende de estado local complejo:
+
+1. **Buscar** en `components/ui/` si ya existe algo similar
+2. **Reutilizar o extender** en vez de crear nuevo
+3. Si no existe nada similar → crear en el lugar correcto:
+   - `components/ui/` para componentes de uso general (pueden usarse en cualquier módulo)
+   - `pages/<módulo>/` para helpers co-localizados (solo usados en ese módulo)
+4. **Reportar** al usuario: "Esto ya existe en X, lo reutilizo" o "No existe, lo creo en Y"
+
+El componente extraído debe ser **drop-in replacement**: comportamiento idéntico al inline, sin cambios visibles al usuario.
+
+---
+
+### Bundle — reglas obligatorias
+
+**App.tsx**: todas las páginas deben ser `React.lazy()`. Solo se importan estáticamente:
+- `Login`, `RecuperarPassword`, `CompletarPerfil`, `Dashboard` (bundle inicial)
+- `ProtectedRoute`, `Layout` (infraestructura)
+
+```ts
+// ✅ SIEMPRE así para páginas
+const MiPagina = lazy(() => import('./pages/modulo/MiPagina'));
+
+// ❌ NUNCA importar páginas estáticamente (excepto las 4 del bundle inicial)
+import MiPagina from './pages/modulo/MiPagina';
+```
+
+**vite.config.ts**: mantener `manualChunks` con `react-vendor` e `icons-vendor` separados del chunk principal.
+
+---
+
+### Fases completadas (referencia)
+
+| Fase | Descripción | Estado |
+|------|-------------|--------|
+| F1–F3 | Extracción de componentes UI reutilizables | ✅ |
+| F4 | Migración de modales inline → `<Modal>` | ✅ |
+| F5 | Extracción de sub-componentes de páginas grandes | ✅ |
+| F6 | Bundle splitting: lazy pages + manualChunks | ✅ |
+| F7 | `/api/health`, deploy.sh mejorado | ✅ |
+
+---
+
 ## Frontend
 
 - El token puede usarse para UX, pero no debe ser la única barrera de seguridad.
