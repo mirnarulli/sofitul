@@ -25,7 +25,11 @@ function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('usuario');
-  window.location.href = '/login';
+  // No redirigir si ya estamos en /login — evita loop infinito cuando
+  // contextos (LogosContext, EstadosContext) hacen llamadas sin sesión activa
+  if (!window.location.pathname.startsWith('/login')) {
+    window.location.href = '/login';
+  }
 }
 
 api.interceptors.response.use(
@@ -39,7 +43,14 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    const accessToken  = localStorage.getItem('token');
     const refreshToken = localStorage.getItem('refresh_token');
+
+    // Sin ningún token: usuario nunca inició sesión — no redirigir, solo rechazar
+    if (!accessToken && !refreshToken) {
+      return Promise.reject(error);
+    }
+
     if (!refreshToken) {
       logout();
       return Promise.reject(error);
