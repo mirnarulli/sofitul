@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatGs, calcularDias, formatDate } from '../../utils/formatters';
 import { contactosApi, panelGlobalApi } from '../../services/contactosApi';
@@ -86,6 +86,9 @@ export default function SimuladorDescuento() {
   // Bancos (Panel Global)
   const [bancos, setBancos] = useState<any[]>([]);
 
+  // Timer refs para debounce de búsqueda de librador (uno por fila)
+  const libradorTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
   // Resumen inputs
   const [comision, setComision] = useState('');
 
@@ -165,35 +168,49 @@ export default function SimuladorDescuento() {
     } catch { /* ignorar */ }
   }, []);
 
-  // ── Búsqueda de librador por cheque (PF + PJ) ────────────────────────
+  // ── Búsqueda de librador por cheque (PF + PJ) con debounce ──────────
 
-  const buscarLibrador = useCallback(async (i: number, q: string) => {
+  const buscarLibrador = useCallback((i: number, q: string) => {
+    // Actualiza solo el buffer de texto visible — NO toca cheques[] en cada tecla
     setLibradorBusqs(prev => prev.map((v, idx) => idx === i ? q : v));
-    // Actualizar también el campo librador del cheque (fallback texto libre)
-    setCheques(prev => prev.map((c, idx) => idx === i ? { ...c, librador: q } : c));
+
     if (q.length < 2) {
+      clearTimeout(libradorTimers.current[i]);
       setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? [] : v));
       return;
     }
-    try {
-      const [pfs, pjs] = await Promise.all([
-        contactosApi.getPersonasFisicas(q),
-        contactosApi.getPersonasJuridicas(q),
-      ]);
-      const opts: ContactoOption[] = [
-        ...pfs.map((p: any) => ({
-          id: p.id, tipo: 'pf' as const,
-          doc: p.numeroDoc,
-          label: `${p.primerNombre} ${p.primerApellido} · CI ${p.numeroDoc}`,
-        })),
-        ...pjs.map((p: any) => ({
-          id: p.id, tipo: 'pj' as const,
-          doc: p.ruc,
-          label: `${p.razonSocial} · RUC ${p.ruc}`,
-        })),
-      ];
-      setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? opts : v));
-    } catch { /* ignorar */ }
+
+    // Debounce 300 ms — evita race conditions y saturar la API en cada tecla
+    clearTimeout(libradorTimers.current[i]);
+    libradorTimers.current[i] = setTimeout(async () => {
+      try {
+        const [pfsRaw, pjsRaw] = await Promise.all([
+          contactosApi.getPersonasFisicas(q),
+          contactosApi.getPersonasJuridicas(q),
+        ]);
+        // Normalizar respuesta: puede venir como array o como { data: [] }
+        const pfs: any[] = Array.isArray(pfsRaw) ? pfsRaw : (pfsRaw?.data ?? pfsRaw?.items ?? []);
+        const pjs: any[] = Array.isArray(pjsRaw) ? pjsRaw : (pjsRaw?.data ?? pjsRaw?.items ?? []);
+
+        const opts: ContactoOption[] = [
+          ...pfs.map((p: any) => ({
+            id:    p.id,
+            tipo:  'pf' as const,
+            doc:   p.numeroDoc ?? p.ci ?? '',
+            label: `${p.primerNombre ?? ''} ${p.primerApellido ?? ''}`.trim() + ` · CI ${p.numeroDoc ?? ''}`,
+          })),
+          ...pjs.map((p: any) => ({
+            id:    p.id,
+            tipo:  'pj' as const,
+            doc:   p.ruc ?? '',
+            label: `${p.razonSocial ?? p.nombre ?? ''} · RUC ${p.ruc ?? ''}`,
+          })),
+        ];
+        setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? opts : v));
+      } catch {
+        /* ignorar — no bloquear la UI por error de búsqueda */
+      }
+    }, 300);
   }, []);
 
   const seleccionarLibrador = (i: number, o: ContactoOption) => {
@@ -599,31 +616,40 @@ export default function SimuladorDescuento() {
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 align-top">
                     <td className="px-3 py-2 text-gray-400 text-xs pt-3">{i + 1}</td>
 
-                    {/* Banco — búsqueda con autocompletar desde Panel Global */}
+                    {/* Banco — búsqueda veloz sobre lista local (sin API) */}
                     <td className="px-1 py-1 relative">
                       <input
-                        value={bancoBusqs[i] ?? c.banco}
+                        value={bancoBusqs[i] ?? ''}
                         onChange={e => {
+                          // Solo actualiza el buffer de búsqueda — NO toca cheques[] en cada tecla
+                          // Esto reduce los re-renders a la mitad respecto a doble-setState
                           const v = e.target.value;
                           setBancoBusqs(prev => prev.map((x, idx) => idx === i ? v : x));
-                          updateCheque(i, 'banco', v);
+                        }}
+                        onBlur={() => {
+                          // Sincroniza al cheque solo al perder foco (texto libre o selección)
+                          updateCheque(i, 'banco', bancoBusqs[i] ?? '');
                         }}
                         placeholder="Buscar banco..."
+                        autoComplete="off"
                         className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
                       />
                       {(() => {
                         const q = (bancoBusqs[i] ?? '').toLowerCase().trim();
                         if (!q) return null;
                         const filtered = bancos.filter((b: any) =>
-                          b.nombre.toLowerCase().includes(q) && b.nombre !== c.banco
+                          b.nombre.toLowerCase().includes(q)
                         );
                         if (filtered.length === 0) return null;
                         return (
-                          <div className="absolute z-30 left-0 w-56 bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-44 overflow-y-auto">
+                          <div className="absolute z-30 left-0 w-64 bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-44 overflow-y-auto">
                             {filtered.map((b: any) => (
                               <button
                                 key={b.id}
-                                onClick={() => {
+                                // onMouseDown + preventDefault: evita que onBlur cierre el
+                                // dropdown antes de que el click registre la selección
+                                onMouseDown={e => {
+                                  e.preventDefault();
                                   updateCheque(i, 'banco', b.nombre);
                                   setBancoBusqs(prev => prev.map((x, idx) => idx === i ? b.nombre : x));
                                 }}
@@ -637,23 +663,33 @@ export default function SimuladorDescuento() {
                       })()}
                     </td>
 
-                    {/* Librador — búsqueda con autocompletar (garante del cheque) */}
+                    {/* Librador — búsqueda PF + PJ con debounce 300ms */}
                     <td className="px-1 py-1 relative">
                       <input
-                        value={libradorBusqs[i] ?? c.librador}
+                        value={libradorBusqs[i] ?? ''}
                         onChange={e => buscarLibrador(i, e.target.value)}
-                        placeholder="Buscar librador (CI/RUC)..."
-                        className="w-full border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded"
+                        onBlur={() => {
+                          // Sincroniza texto libre al cheque si no hubo selección
+                          updateCheque(i, 'librador', libradorBusqs[i] ?? '');
+                        }}
+                        placeholder="Buscar librador (nombre, CI o RUC)..."
+                        autoComplete="off"
+                        className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
                       />
                       {(libradorOptsAll[i] || []).length > 0 && (
-                        <div className="absolute z-30 left-0 min-w-[260px] bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-44 overflow-y-auto">
+                        <div className="absolute z-30 left-0 min-w-[280px] bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-52 overflow-y-auto">
                           {(libradorOptsAll[i] || []).map((o: ContactoOption) => (
                             <button
                               key={o.id}
-                              onClick={() => seleccionarLibrador(i, o)}
+                              // onMouseDown + preventDefault: evita que onBlur cierre el
+                              // dropdown antes de que el click registre la selección
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                seleccionarLibrador(i, o);
+                              }}
                               className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-100 last:border-0"
                             >
-                              <span className={`inline-block text-xs px-1 py-0.5 rounded mr-1.5 font-medium ${o.tipo === 'pf' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                              <span className={`inline-block text-xs px-1.5 py-0.5 rounded mr-2 font-semibold ${o.tipo === 'pf' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
                                 {o.tipo === 'pf' ? 'PF' : 'PJ'}
                               </span>
                               {o.label}
