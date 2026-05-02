@@ -66,6 +66,7 @@ const MODULES: NavModule[] = [
         { icon: Wallet,     label: 'Desembolsos',          path: '/tesoreria' },
         { icon: BarChart2,  label: 'Dashboard Desembolsos', path: '/dashboards/desembolsos' },
         { icon: TrendingUp, label: 'Dashboard Cheques',     path: '/tesoreria/cheques' },
+        { icon: TrendingUp, label: 'Dashboard Financiero',  path: '/dashboards/financiero' },
       ],
     }],
   },
@@ -294,8 +295,9 @@ function detectModule(pathname: string): string | null {
   if (pathname.startsWith('/contactos'))     return 'contactos';
   if (pathname.startsWith('/cobranzas'))     return 'cobranzas';
   if (pathname.startsWith('/conciliaciones')) return 'cobranzas';
-  if (pathname.startsWith('/tesoreria'))     return 'tesoreria';
-  if (pathname.startsWith('/dashboards'))    return 'cobranzas';
+  if (pathname.startsWith('/tesoreria'))              return 'tesoreria';
+  if (pathname === '/dashboards/financiero')          return 'tesoreria';
+  if (pathname.startsWith('/dashboards'))             return 'cobranzas';
   if (pathname.startsWith('/admin'))         return 'admin';
   if (pathname.startsWith('/panel'))         return 'panel';
   if (pathname.startsWith('/rrhh'))          return 'rrhh';

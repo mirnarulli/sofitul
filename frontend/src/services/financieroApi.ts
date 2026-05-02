@@ -5,6 +5,7 @@ export const transaccionesApi = {
   registrarPago:   (b: any)                                 => api.post('/transacciones/pago', b).then(r => r.data),
   reversar:        (id: string, b: { motivo: string })      => api.post(`/transacciones/${id}/reversar`, b).then(r => r.data),
   resumenIngresos: (params: { desde: string; hasta: string }) => api.get('/transacciones/resumen-ingresos', { params }).then(r => r.data),
+  resumenMensual:  (año: number) => api.get('/transacciones/resumen-mensual', { params: { año } }).then(r => r.data),
 };
 
 export const cargosOperacionApi = {

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Printer, FileText, Upload, ExternalLink, Save, UserCheck, Plus, X, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { operacionesApi } from '../../services/operacionesApi';
-import { contactosApi } from '../../services/contactosApi';
+import { contactosApi, mediosPagoApi } from '../../services/contactosApi';
+import { transaccionesApi } from '../../services/financieroApi';
 import StatusBadge from '../../components/StatusBadge';
 import { formatGs, formatDate } from '../../utils/formatters';
 
@@ -73,6 +74,16 @@ export default function OperacionDetalle() {
   const informconfRef        = useRef<HTMLInputElement>(null);
   const infocheckRef         = useRef<HTMLInputElement>(null);
 
+  // Cobro
+  const [modalCobro,    setModalCobro]    = useState(false);
+  const [cobrando,      setCobrando]      = useState(false);
+  const [cuotasSel,     setCuotasSel]     = useState<string[]>([]);
+  const [medioPagoId,   setMedioPagoId]   = useState('');
+  const [mediosPago,    setMediosPago]    = useState<any[]>([]);
+  const [nroReferencia, setNroReferencia] = useState('');
+  const [fechaCobroTx,  setFechaCobroTx]  = useState(new Date().toISOString().split('T')[0]);
+  const [toastCobro,    setToastCobro]    = useState('');
+
   // Cheques — cambio de estado individual
   const [updatingCheque, setUpdatingCheque] = useState<string | null>(null); // id del cheque en proceso
 
@@ -102,6 +113,20 @@ export default function OperacionDetalle() {
       .catch(() => navigate('/operaciones'))
       .finally(() => setLoading(false));
   }, [id, navigate]);
+
+  useEffect(() => {
+    if (modalCobro && mediosPago.length === 0)
+      mediosPagoApi.getActivos().then(setMediosPago).catch(() => {});
+  }, [modalCobro]);
+
+  const cargar = async () => {
+    if (!id) return;
+    const o = await operacionesApi.getById(id);
+    setOp(o);
+    if (o.estado) {
+      operacionesApi.getSiguientesEstados(o.estado).then(setSiguientes).catch(() => {});
+    }
+  };
 
   const recargarOp = async () => {
     if (!id) return;
@@ -220,6 +245,50 @@ export default function OperacionDetalle() {
     } catch (err: any) {
       alert(err.response?.data?.message ?? 'Error al subir la ficha Infocheck.');
     } finally { setUploadingInfocheck(false); if (infocheckRef.current) infocheckRef.current.value = ''; }
+  };
+
+  const cuotasPendientes = (op?.cuotas ?? []).filter((c: any) => ['PENDIENTE','MORA'].includes(c.estado));
+  const cuotasSelObj     = cuotasPendientes.filter((c: any) => cuotasSel.includes(c.id));
+
+  const totalCapital  = cuotasSelObj.reduce((s: number, c: any) => s + Math.max(0, Number(c.capital) - Number(c.pagado ?? 0)), 0);
+  const totalInteres  = cuotasSelObj.reduce((s: number, c: any) => s + Math.max(0, Number(c.interes) - Number(c.interesPagado ?? 0)), 0);
+  const totalMora     = cuotasSelObj.reduce((s: number, c: any) => s + Math.max(0, Number(c.moraCalculada ?? 0) - Number(c.moraPagada ?? 0)), 0);
+  const totalGastos   = cuotasSelObj.reduce((s: number, c: any) => s + Math.max(0, Number(c.gastosAdmin ?? 0) - Number(c.gastosAdminPagado ?? 0)), 0);
+  const totalGeneral  = totalCapital + totalInteres + totalMora + totalGastos;
+
+  const handleRegistrarCobro = async () => {
+    if (!cuotasSel.length || !medioPagoId) return;
+    setCobrando(true);
+    try {
+      await transaccionesApi.registrarPago({
+        operacionId:      op.id,
+        fechaTransaccion: fechaCobroTx,
+        fechaValor:       fechaCobroTx,
+        montoTotal:       totalGeneral,
+        montoCapital:     totalCapital,
+        montoInteres:     totalInteres,
+        montoMora:        totalMora,
+        montoGastosAdmin: totalGastos,
+        montoProrroga:    0,
+        medioPagoId,
+        nroReferencia:    nroReferencia || undefined,
+        aplicaciones: cuotasSelObj.map((c: any) => ({
+          cuotaId:         c.id,
+          capitalAplicado: Math.max(0, Number(c.capital) - Number(c.pagado ?? 0)),
+          interesAplicado: Math.max(0, Number(c.interes) - Number(c.interesPagado ?? 0)),
+          moraAplicada:    Math.max(0, Number(c.moraCalculada ?? 0) - Number(c.moraPagada ?? 0)),
+          gastosAplicados: Math.max(0, Number(c.gastosAdmin ?? 0) - Number(c.gastosAdminPagado ?? 0)),
+          prorrogaAplicada: 0,
+        })),
+      });
+      setModalCobro(false);
+      setCuotasSel([]);
+      setNroReferencia('');
+      setToastCobro('Cobro registrado correctamente');
+      cargar();
+    } catch (e: any) {
+      setToastCobro(e?.response?.data?.message ?? 'Error al registrar cobro');
+    } finally { setCobrando(false); }
   };
 
   if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
@@ -452,12 +521,20 @@ export default function OperacionDetalle() {
       {/* Cuotas */}
       {op.cuotas?.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Plan de pagos</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Plan de pagos</h2>
+            {cuotasPendientes.length > 0 && (
+              <button onClick={() => setModalCobro(true)}
+                className="flex items-center gap-1.5 bg-green-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-700">
+                <span>+</span> Registrar Cobro
+              </button>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-50">
-                <tr>{['N°','Vencimiento','Capital','Interés','Total','Pagado','Saldo','Estado'].map(h => (
-                  <th key={h} className="px-3 py-2 text-left text-gray-500 font-semibold uppercase">{h}</th>
+                <tr>{['N°','Vencimiento','Capital','Interés','Mora','Gastos','Total','Pagado','Saldo','Estado'].map(h => (
+                  <th key={h} className="px-3 py-2 text-left text-gray-500 font-semibold uppercase text-xs">{h}</th>
                 ))}</tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -467,6 +544,8 @@ export default function OperacionDetalle() {
                     <td className="px-3 py-2">{formatDate(c.fechaVencimiento)}</td>
                     <td className="px-3 py-2">{formatGs(c.capital)}</td>
                     <td className="px-3 py-2 text-red-600">{formatGs(c.interes)}</td>
+                    <td className="px-3 py-2 text-orange-600">{Number(c.moraCalculada) > 0 ? formatGs(c.moraCalculada) : '—'}</td>
+                    <td className="px-3 py-2 text-purple-600">{Number(c.gastosAdmin) > 0 ? formatGs(c.gastosAdmin) : '—'}</td>
                     <td className="px-3 py-2 font-medium">{formatGs(c.total)}</td>
                     <td className="px-3 py-2 text-green-700">{formatGs(c.pagado)}</td>
                     <td className="px-3 py-2 font-medium">{formatGs(c.saldo)}</td>
@@ -597,6 +676,115 @@ export default function OperacionDetalle() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Modal Registrar Cobro */}
+      {modalCobro && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Registrar Cobro</h2>
+              <button onClick={() => setModalCobro(false)} className="text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Selección de cuotas */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Cuotas a cobrar</p>
+                <div className="space-y-2">
+                  {cuotasPendientes.map((c: any) => {
+                    const saldoReal = Math.max(0, Number(c.capital) - Number(c.pagado ?? 0))
+                                    + Math.max(0, Number(c.interes) - Number(c.interesPagado ?? 0))
+                                    + Math.max(0, Number(c.moraCalculada ?? 0) - Number(c.moraPagada ?? 0))
+                                    + Math.max(0, Number(c.gastosAdmin ?? 0) - Number(c.gastosAdminPagado ?? 0));
+                    return (
+                      <label key={c.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${cuotasSel.includes(c.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="checkbox" checked={cuotasSel.includes(c.id)}
+                          onChange={e => setCuotasSel(prev => e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id))}
+                          className="w-4 h-4 accent-blue-600" />
+                        <div className="flex-1 grid grid-cols-4 gap-2 text-xs">
+                          <span className="font-medium">Cuota {c.nroCuota}</span>
+                          <span className="text-gray-500">{c.fechaVencimiento}</span>
+                          <span className={c.estado === 'MORA' ? 'text-red-600 font-semibold' : 'text-gray-700'}>
+                            {c.estado}
+                            {c.diasMora > 0 && <span className="ml-1 text-red-500">({c.diasMora}d mora)</span>}
+                          </span>
+                          <span className="font-semibold text-right">Gs. {saldoReal.toLocaleString('es-PY')}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Desglose waterfall */}
+              {cuotasSel.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Desglose del cobro</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span className="text-gray-600">Capital</span>
+                    <span className="text-right font-medium">Gs. {totalCapital.toLocaleString('es-PY')}</span>
+                    <span className="text-gray-600">Interés</span>
+                    <span className="text-right font-medium text-red-600">Gs. {totalInteres.toLocaleString('es-PY')}</span>
+                    {totalMora > 0 && <>
+                      <span className="text-gray-600">Mora</span>
+                      <span className="text-right font-medium text-orange-600">Gs. {totalMora.toLocaleString('es-PY')}</span>
+                    </>}
+                    {totalGastos > 0 && <>
+                      <span className="text-gray-600">Gastos Admin.</span>
+                      <span className="text-right font-medium text-purple-600">Gs. {totalGastos.toLocaleString('es-PY')}</span>
+                    </>}
+                    <span className="font-bold border-t border-gray-200 pt-2">Total</span>
+                    <span className="text-right font-bold text-blue-700 border-t border-gray-200 pt-2">Gs. {totalGeneral.toLocaleString('es-PY')}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Medio de pago */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Medio de pago *</label>
+                <select value={medioPagoId} onChange={e => setMedioPagoId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Seleccionar...</option>
+                  {mediosPago.map((m: any) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                </select>
+              </div>
+
+              {/* N° referencia (si el medio lo requiere) */}
+              {mediosPago.find((m: any) => m.id === medioPagoId)?.requiereReferencia && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">N° Referencia / Comprobante</label>
+                  <input type="text" value={nroReferencia} onChange={e => setNroReferencia(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: 0001234567" />
+                </div>
+              )}
+
+              {/* Fecha */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Fecha del cobro</label>
+                <input type="date" value={fechaCobroTx} onChange={e => setFechaCobroTx(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setModalCobro(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-200">Cancelar</button>
+              <button onClick={handleRegistrarCobro} disabled={cobrando || !cuotasSel.length || !medioPagoId}
+                className="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
+                {cobrando ? 'Registrando...' : `Confirmar cobro Gs. ${totalGeneral.toLocaleString('es-PY')}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast cobro */}
+      {toastCobro && (
+        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-3 ${toastCobro.includes('Error') || toastCobro.includes('error') ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
+          {toastCobro}
+          <button onClick={() => setToastCobro('')} className="ml-2 opacity-70 hover:opacity-100 text-lg font-bold">×</button>
         </div>
       )}
     </div>

@@ -21,6 +21,11 @@ export class TransaccionesController {
     return this.svc.resumenIngresos(desde, hasta);
   }
 
+  @Get('resumen-mensual')
+  resumenMensual(@Query('año') año: string) {
+    return this.svc.resumenMensual(Number(año));
+  }
+
   @Post('pago')
   @Roles('SUPERADMIN', 'ADMIN', 'COBRADOR')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

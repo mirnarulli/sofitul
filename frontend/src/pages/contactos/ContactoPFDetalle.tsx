@@ -5,6 +5,7 @@ import {
   TrendingUp, AlertTriangle, CheckCircle, Clock,
 } from 'lucide-react';
 import { contactosApi, panelGlobalApi, documentosContactoApi } from '../../services/contactosApi';
+import { scoringClientesApi } from '../../services/rrhhApi';
 import { useEmpresa } from '../../context/LogosContext';
 import { formatDate, formatGs, diasHasta } from '../../utils/formatters';
 import { ESTADOS_VIGENTES } from '../../utils/estados';
@@ -274,7 +275,7 @@ function FichaImpresa({ pf, operaciones, empresas }: { pf: any; operaciones: any
 // ── Main component ────────────────────────────────────────────────────────────
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') ?? 'http://localhost:3002';
-const TABS = ['Datos Personales','Financiero','Operaciones','Transferencia','Due Diligencia','Documentos'] as const;
+const TABS = ['Datos Personales','Financiero','Operaciones','Transferencia','Due Diligencia','Documentos','Scoring'] as const;
 type Tab = typeof TABS[number];
 
 export default function ContactoPFDetalle() {
@@ -299,6 +300,10 @@ export default function ContactoPFDetalle() {
   const [ciudades,      setCiudades]      = useState<any[]>([]);
   const [califEdit,     setCalifEdit]     = useState(false);
   const [califSaving,   setCalifSaving]   = useState(false);
+  const [scorings,      setScorings]      = useState<any[]>([]);
+  const [loadingScoring,setLoadingScoring]= useState(false);
+  const [modalScoring,  setModalScoring]  = useState(false);
+  const [nuevoScoring,  setNuevoScoring]  = useState({ calificacion: 7, descripcion: '', observacion: '' });
 
   useEffect(() => {
     if (!id) return;
@@ -335,6 +340,17 @@ export default function ContactoPFDetalle() {
       setCiudades([]);
     }
   }, [form.departamento, editing, departamentos]);
+
+  // Cargar scoring cuando se selecciona ese tab
+  useEffect(() => {
+    if (tab === 'Scoring' && pf?.numeroDoc) {
+      setLoadingScoring(true);
+      scoringClientesApi.getByCi(pf.numeroDoc)
+        .then(data => setScorings(Array.isArray(data) ? data : (data.data ?? [])))
+        .catch(() => {})
+        .finally(() => setLoadingScoring(false));
+    }
+  }, [tab, pf?.numeroDoc]);
 
   if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
   if (!pf) return null;
@@ -764,6 +780,93 @@ export default function ContactoPFDetalle() {
     />
   );
 
+  const renderScoring = () => {
+    const badge = (cal: number) => {
+      const color = cal >= 8 ? 'bg-green-100 text-green-700' : cal >= 5 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
+      return <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${color}`}>{cal}/10</span>;
+    };
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-700">Historial de calificaciones</h3>
+          <button onClick={() => setModalScoring(true)}
+            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 font-medium">
+            + Nueva calificación
+          </button>
+        </div>
+        {loadingScoring ? (
+          <div className="text-center py-8 text-gray-400 text-sm">Cargando...</div>
+        ) : scorings.length === 0 ? (
+          <div className="text-center py-8 text-gray-400 text-sm">Sin calificaciones registradas</div>
+        ) : (
+          <div className="space-y-3">
+            {scorings.map((s: any) => (
+              <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {badge(s.calificacion)}
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{s.descripcion || '—'}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{s.observacion}</p>
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-gray-400 shrink-0">
+                    <p>{s.fecha}</p>
+                    <p>{s.verificadorNombre}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Modal nueva calificación */}
+        {modalScoring && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Nueva calificación</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Calificación (1-10)</label>
+                  <div className="flex items-center gap-3">
+                    <input type="range" min={1} max={10} value={nuevoScoring.calificacion}
+                      onChange={e => setNuevoScoring(p => ({ ...p, calificacion: +e.target.value }))}
+                      className="flex-1 accent-blue-600" />
+                    <span className="text-2xl font-bold text-blue-600 w-8 text-center">{nuevoScoring.calificacion}</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descripción</label>
+                  <input type="text" value={nuevoScoring.descripcion}
+                    onChange={e => setNuevoScoring(p => ({ ...p, descripcion: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ej: Buen historial de pagos" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Observación</label>
+                  <textarea value={nuevoScoring.observacion} rows={3}
+                    onChange={e => setNuevoScoring(p => ({ ...p, observacion: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Observaciones adicionales..." />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-5">
+                <button onClick={() => setModalScoring(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancelar</button>
+                <button onClick={async () => {
+                  await scoringClientesApi.create({ ci: pf.numeroDoc, nombreCliente: `${pf.primerNombre} ${pf.primerApellido}`, ...nuevoScoring, fecha: new Date().toISOString().split('T')[0] });
+                  setModalScoring(false);
+                  scoringClientesApi.getByCi(pf.numeroDoc).then(data => setScorings(Array.isArray(data) ? data : (data.data ?? []))).catch(() => {});
+                }} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderTabContent = () => {
     switch (tab) {
       case 'Datos Personales': return renderDatosPersonales();
@@ -772,6 +875,7 @@ export default function ContactoPFDetalle() {
       case 'Documentos':       return renderDocsTab('documentos');
       case 'Due Diligencia':   return renderDocsTab('due_diligence');
       case 'Operaciones':      return renderOperaciones();
+      case 'Scoring':          return renderScoring();
       default: return null;
     }
   };

@@ -37,7 +37,10 @@ export class TransaccionesService {
   }
 
   async resumenIngresos(desde: string, hasta: string) {
-    return this.ds.query(`
+    const rows = await this.ds.query<{
+      total: string; capital: string; interes: string;
+      mora: string; gastos_admin: string; prorroga: string; cantidad: number;
+    }[]>(`
       SELECT
         SUM(monto_total)        AS total,
         SUM(monto_capital)      AS capital,
@@ -51,6 +54,56 @@ export class TransaccionesService {
         AND estado = 'APLICADO'
         AND fecha_transaccion BETWEEN $1 AND $2
     `, [desde, hasta]);
+
+    const r = rows[0];
+    return {
+      montoCapital:     Number(r?.capital      ?? 0),
+      montoInteres:     Number(r?.interes      ?? 0),
+      montoMora:        Number(r?.mora         ?? 0),
+      montoGastosAdmin: Number(r?.gastos_admin ?? 0),
+      montoProrroga:    Number(r?.prorroga     ?? 0),
+      totalCobrado:     Number(r?.total        ?? 0),
+      cantidadPagos:    Number(r?.cantidad     ?? 0),
+    };
+  }
+
+  private readonly LABELS_MES = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  async resumenMensual(año: number) {
+    const rows = await this.ds.query<{
+      mes: number; interes: string; mora: string;
+      gastos: string; capital: string; total: string;
+    }[]>(`
+      SELECT
+        EXTRACT(MONTH FROM fecha_valor::date)::int AS mes,
+        SUM(monto_interes)      AS interes,
+        SUM(monto_mora)         AS mora,
+        SUM(monto_gastos_admin) AS gastos,
+        SUM(monto_capital)      AS capital,
+        SUM(monto_total)        AS total
+      FROM transacciones
+      WHERE tipo = 'PAGO'
+        AND estado = 'APLICADO'
+        AND EXTRACT(YEAR FROM fecha_valor::date) = $1
+      GROUP BY mes
+      ORDER BY mes
+    `, [año]);
+
+    // Rellenar los 12 meses (los meses sin datos quedan en 0)
+    const porMes = new Map(rows.map(r => [Number(r.mes), r]));
+    return Array.from({ length: 12 }, (_, i) => {
+      const mes = i + 1;
+      const r   = porMes.get(mes);
+      return {
+        mes,
+        label:   this.LABELS_MES[mes],
+        interes: Number(r?.interes ?? 0),
+        mora:    Number(r?.mora    ?? 0),
+        gastos:  Number(r?.gastos  ?? 0),
+        capital: Number(r?.capital ?? 0),
+        total:   Number(r?.total   ?? 0),
+      };
+    });
   }
 
   // ── Registrar pago ─────────────────────────────────────────────────────────

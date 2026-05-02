@@ -48,6 +48,8 @@ function makeService(opts: {
     noop,   // cuotaRepo
     noop,   // estadoRepo
     noop,   // transRepo
+    noop,   // tipoCargoRepo
+    noop,   // cargoOpRepo
     mockDs  as any,
     noop,   // feriadosSvc
   );

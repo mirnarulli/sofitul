@@ -8,6 +8,8 @@ import { ChequeDetalle } from './entities/cheque-detalle.entity';
 import { Cuota } from './entities/cuota.entity';
 import { EstadoOperacion } from './entities/estado-operacion.entity';
 import { EstadoTransicion } from './entities/estado-transicion.entity';
+import { TipoCargo } from '../entities/tipo-cargo.entity';
+import { CargoOperacion } from '../cargos-operacion/entities/cargo-operacion.entity';
 import { FeriadosService } from '../feriados/feriados.service';
 import { CreateOperacionDto } from './dto/create-operacion.dto';
 import { UpdateOperacionDto } from './dto/update-operacion.dto';
@@ -28,6 +30,8 @@ export class OperacionesService {
     @InjectRepository(Cuota)             private cuotaRepo: Repository<Cuota>,
     @InjectRepository(EstadoOperacion)   private estadoRepo: Repository<EstadoOperacion>,
     @InjectRepository(EstadoTransicion)  private transRepo: Repository<EstadoTransicion>,
+    @InjectRepository(TipoCargo)         private tipoCargoRepo: Repository<TipoCargo>,
+    @InjectRepository(CargoOperacion)    private cargoOpRepo: Repository<CargoOperacion>,
     @InjectDataSource()                  private ds: DataSource,
     private feriadosSvc: FeriadosService,
   ) {}
@@ -69,6 +73,89 @@ export class OperacionesService {
     const cheques = await this.chequeRepo.find({ where: { operacionId: id }, order: { createdAt: 'ASC' } });
     const cuotas  = await this.cuotaRepo.find({ where: { operacionId: id }, order: { nroCuota: 'ASC' } });
     return { ...operacion, cheques, cuotas };
+  }
+
+  // ── Helpers: cargos automáticos ──────────────────────────────────────────
+  private calcularMontoCargo(
+    tipo: TipoCargo,
+    operacion: Operacion,
+    cuota?: { capital: number; interes: number; total: number },
+  ): number {
+    const base = ({
+      CAPITAL_OPERACION: Number(operacion.capitalInvertido ?? operacion.montoTotal ?? 0),
+      SALDO_VENCIDO:     cuota ? Number(cuota.capital) : Number(operacion.montoTotal ?? 0),
+      MONTO_CUOTA:       cuota ? Number(cuota.total) : 0,
+      FIJO:              0,
+    } as Record<string, number>)[tipo.baseCalculo] ?? 0;
+
+    if (tipo.baseCalculo === 'FIJO') {
+      return Number(tipo.montoFijo ?? 0);
+    }
+    if (tipo.porcentaje) {
+      return Math.round(base * (Number(tipo.porcentaje) / 100));
+    }
+    return 0;
+  }
+
+  private async generarCargosOperacion(operacion: Operacion, cuotas: Cuota[]): Promise<void> {
+    const tiposActivos = await this.tipoCargoRepo.find({
+      where: { activo: true },
+      order: { orden: 'ASC' },
+    });
+
+    const cargos: Partial<CargoOperacion>[] = [];
+    const hoy = new Date().toISOString().split('T')[0];
+
+    for (const tipo of tiposActivos) {
+      if (tipo.aplicaEn === 'INICIO_OPERACION' || tipo.aplicaEn === 'AMBOS') {
+        const monto = this.calcularMontoCargo(tipo, operacion);
+        if (monto > 0 || tipo.baseCalculo === 'FIJO') {
+          cargos.push({
+            operacionId:    operacion.id,
+            cuotaId:        null,
+            tipoCargoid:    tipo.id,
+            descripcion:    tipo.nombre,
+            categoria:      tipo.categoria,
+            montoCalculado: monto,
+            montoCobrado:   0,
+            montoExonerado: 0,
+            fechaCargo:     hoy,
+            estado:         'PENDIENTE',
+          });
+        }
+      }
+
+      if (tipo.aplicaEn === 'POR_CUOTA' || tipo.aplicaEn === 'AMBOS') {
+        for (const cuota of cuotas) {
+          // Saltar mora — se genera por batch nocturno, no al crear
+          if (tipo.categoria === 'MORA') continue;
+
+          const monto = this.calcularMontoCargo(tipo, operacion, {
+            capital: Number(cuota.capital),
+            interes: Number(cuota.interes),
+            total:   Number(cuota.total),
+          });
+          if (monto > 0 || tipo.baseCalculo === 'FIJO') {
+            cargos.push({
+              operacionId:    operacion.id,
+              cuotaId:        cuota.id,
+              tipoCargoid:    tipo.id,
+              descripcion:    tipo.nombre,
+              categoria:      tipo.categoria,
+              montoCalculado: monto,
+              montoCobrado:   0,
+              montoExonerado: 0,
+              fechaCargo:     cuota.fechaVencimiento,
+              estado:         'PENDIENTE',
+            });
+          }
+        }
+      }
+    }
+
+    if (cargos.length) {
+      await this.cargoOpRepo.save(cargos.map(c => this.cargoOpRepo.create(c)));
+    }
   }
 
   // ── Crear ─────────────────────────────────────────────────────────────────
@@ -172,6 +259,11 @@ export class OperacionesService {
       const items = cuotasToSave.map(c => this.cuotaRepo.create({ ...c, operacionId: operacion.id }));
       await this.cuotaRepo.save(items);
     }
+
+    // Auto-generar cargos por tipos_cargo activos
+    const cuotasGuardadas = await this.cuotaRepo.find({ where: { operacionId: operacion.id }, order: { nroCuota: 'ASC' } });
+    const opActualizada   = await this.operRepo.findOne({ where: { id: operacion.id } });
+    if (opActualizada) await this.generarCargosOperacion(opActualizada, cuotasGuardadas);
 
     return this.findById(operacion.id);
   }

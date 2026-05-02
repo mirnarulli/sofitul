@@ -34,6 +34,7 @@ const DashboardCheques     = lazy(() => import('./pages/tesoreria/DashboardChequ
 
 const DashboardRecupero    = lazy(() => import('./pages/dashboards/DashboardRecupero'));
 const DashboardDesembolsos = lazy(() => import('./pages/dashboards/DashboardDesembolsos'));
+const DashboardFinanciero  = lazy(() => import('./pages/dashboards/DashboardFinanciero'));
 
 const Usuarios             = lazy(() => import('./pages/admin/Usuarios'));
 const GestionRoles         = lazy(() => import('./pages/admin/GestionRoles'));
@@ -117,6 +118,7 @@ export default function App() {
             {/* Dashboards */}
             <Route path="/dashboards/recupero"    element={<DashboardRecupero />} />
             <Route path="/dashboards/desembolsos" element={<DashboardDesembolsos />} />
+            <Route path="/dashboards/financiero"  element={<DashboardFinanciero />} />
 
             {/* Administración */}
             <Route path="/admin/usuarios" element={<Usuarios />} />
