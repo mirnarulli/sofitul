@@ -142,8 +142,9 @@ ok "Servidor actualizado"
 
 # ─── 6. Verificar ────────────────────────────────────────────────────────────
 log "[6/6] Verificando..."
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://sofitul.onetradesa.pro/api/health 2>/dev/null || echo "---")
-echo "  Backend health: $HTTP_STATUS"
+HEALTH=$(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_HOST" \
+  "curl -s http://localhost:3002/api/health 2>/dev/null || echo '{}'")
+echo "  Backend health: $HEALTH"
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
