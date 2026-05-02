@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+# Pre-commit: verifica TypeScript + tests antes de cada commit
+
+echo "▶ [pre-commit] TypeScript frontend..."
+cd frontend && npx tsc --noEmit
+TSC_EXIT=$?
+cd ..
+if [ $TSC_EXIT -ne 0 ]; then
+  echo "✖ TypeScript falló. Corregí los errores antes de commitear."
+  exit 1
+fi
+
+echo "▶ [pre-commit] Tests frontend..."
+cd frontend && pnpm test
+FE_EXIT=$?
+cd ..
+if [ $FE_EXIT -ne 0 ]; then
+  echo "✖ Tests del frontend fallaron."
+  exit 1
+fi
+
+echo "▶ [pre-commit] Tests backend..."
+cd backend && npx jest
+BE_EXIT=$?
+cd ..
+if [ $BE_EXIT -ne 0 ]; then
+  echo "✖ Tests del backend fallaron."
+  exit 1
+fi
+
+echo "✔ pre-commit OK"

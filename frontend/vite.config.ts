@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+  test: {
+    environment: 'node',        // formatters y lógica pura no necesitan DOM
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+  },
   plugins: [react(), tailwindcss()],
   build: {
     rollupOptions: {
