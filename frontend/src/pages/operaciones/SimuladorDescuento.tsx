@@ -130,9 +130,14 @@ export default function SimuladorDescuento() {
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // ── Cargar bancos al montar ───────────────────────────────────────────
+  // ── Cargar bancos al montar (getBancos igual que Panel Global) ──────────
   useEffect(() => {
-    panelGlobalApi.getBancosActivos().then(setBancos).catch(() => {});
+    panelGlobalApi.getBancos()
+      .then((data: any) => {
+        const arr = Array.isArray(data) ? data : [];
+        setBancos(arr.filter((b: any) => b.activo !== false));
+      })
+      .catch(() => {});
   }, []);
 
   // ── Cargar feriados (año de operación + siguiente para cubrir 180 días) ──
