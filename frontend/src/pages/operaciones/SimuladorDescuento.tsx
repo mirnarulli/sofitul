@@ -679,26 +679,18 @@ export default function SimuladorDescuento() {
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 align-top">
                     <td className="px-3 py-2 text-gray-400 text-xs pt-3">{i + 1}</td>
 
-                    {/* Banco — datalist nativo: el browser maneja el dropdown,
-                        sin race conditions de estado React. */}
+                    {/* Banco — select nativo: sin dropdowns custom, sin race conditions */}
                     <td className="px-1 py-1">
-                      <input
-                        list={`bancos-list-${i}`}
-                        value={bancoBusqs[i] ?? ''}
-                        onChange={e => {
-                          const v = e.target.value;
-                          setBancoBusqs(prev => prev.map((x, idx) => idx === i ? v : x));
-                          if (bancos.some((b: any) => b.nombre === v)) updateCheque(i, 'banco', v);
-                        }}
-                        onBlur={() => updateCheque(i, 'banco', bancoBusqs[i] ?? '')}
-                        placeholder="Buscar banco..."
+                      <select
+                        value={c.banco}
+                        onChange={e => updateCheque(i, 'banco', e.target.value)}
                         className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                      />
-                      <datalist id={`bancos-list-${i}`}>
+                      >
+                        <option value="">— Seleccionar —</option>
                         {bancos.map((b: any) => (
-                          <option key={b.id} value={b.nombre} />
+                          <option key={b.id} value={b.nombre}>{b.nombre}</option>
                         ))}
-                      </datalist>
+                      </select>
                     </td>
 
                     {/* Librador — búsqueda PF + PJ con debounce 300ms.
