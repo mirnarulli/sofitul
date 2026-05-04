@@ -120,14 +120,12 @@ export default function SimuladorDescuento() {
   // Cheques (max 10)
   const [cheques, setCheques] = useState<Cheque[]>([{ ...CHEQUE_VACIO }]);
 
-  // Fila cuyo input de banco tiene foco (controla dropdown)
-  const [bancoFocusRow, setBancoFocusRow] = useState(-1);
-
   // Librador búsqueda por cheque (arrays paralelos a cheques)
   const [libradorBusqs,   setLibradorBusqs]   = useState<string[]>(['']);
   const [libradorOptsAll, setLibradorOptsAll] = useState<ContactoOption[][]>([[]]);
 
-  // Bancos (Panel Global)
+  // Bancos (Panel Global) — se usan en <datalist> para evitar problemas de
+  // z-index/overflow con dropdown custom dentro de tabla overflow-x-auto
   const [bancos, setBancos] = useState<any[]>([]);
 
   // Feriados — Set de fechas YYYY-MM-DD para lookup O(1) al calcular días hábiles
@@ -680,6 +678,13 @@ export default function SimuladorDescuento() {
           </div>
         </div>
 
+        {/* datalist de bancos — referenciado por list="bancos-datalist" en cada fila */}
+        <datalist id="bancos-datalist">
+          {bancos.map((b: any) => (
+            <option key={b.id} value={b.nombre} />
+          ))}
+        </datalist>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -704,40 +709,18 @@ export default function SimuladorDescuento() {
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 align-top">
                     <td className="px-3 py-2 text-gray-400 text-xs pt-3">{i + 1}</td>
 
-                    {/* Banco — input con dropdown filtrado. onBlur con delay 200ms
-                        para que el onClick del item se registre antes de cerrar. */}
+                    {/* Banco — datalist nativo: evita problemas de z-index/overflow
+                        dentro de tabla overflow-x-auto. El browser renderiza la lista
+                        fuera del DOM flow, sin conflictos de posicionamiento. */}
                     <td className="px-1 py-1">
-                      <div className="relative">
-                        <input
-                          value={c.banco}
-                          onChange={e => updateCheque(i, 'banco', e.target.value)}
-                          onFocus={() => setBancoFocusRow(i)}
-                          onClick={() => setBancoFocusRow(i)}
-                          onBlur={() => setBancoFocusRow(-1)}
-                          placeholder="Banco..."
-                          autoComplete="off"
-                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
-                        {bancoFocusRow === i && (() => {
-                          const q = c.banco.toLowerCase().trim();
-                          const filtered = q
-                            ? bancos.filter((b: any) => b.nombre.toLowerCase().includes(q))
-                            : bancos;
-                          if (!filtered.length) return null;
-                          if (q && filtered.length === 1 && filtered[0].nombre.toLowerCase() === q) return null;
-                          return (
-                            <div className="absolute z-40 left-0 w-56 bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-44 overflow-y-auto">
-                              {filtered.map((b: any) => (
-                                <button key={b.id}
-                                  onMouseDown={e => { e.preventDefault(); updateCheque(i, 'banco', b.nombre); setBancoFocusRow(-1); }}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0">
-                                  {b.nombre}
-                                </button>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
+                      <input
+                        value={c.banco}
+                        onChange={e => updateCheque(i, 'banco', e.target.value)}
+                        list="bancos-datalist"
+                        placeholder="Banco..."
+                        autoComplete="off"
+                        className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
                     </td>
 
                     {/* Librador — búsqueda PF + PJ con debounce 300ms.
