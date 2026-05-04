@@ -459,8 +459,8 @@ export class OperacionesService {
     const vencidas = await this.operRepo
       .createQueryBuilder('o')
       .where('o.estado IN (:...estados)', { estados: ESTADOS_ACTIVOS })
-      .andWhere('o.fechaVencimiento IS NOT NULL')
-      .andWhere("o.fechaVencimiento::date < CURRENT_DATE")
+      .andWhere('o.fecha_vencimiento IS NOT NULL')
+      .andWhere("o.fecha_vencimiento::date < CURRENT_DATE")
       .getMany();
 
     if (vencidas.length === 0) return { procesadas: 0, ids: [] };
@@ -497,8 +497,8 @@ export class OperacionesService {
     return this.operRepo
       .createQueryBuilder('o')
       .where('o.estado IN (:...estados)', { estados: ESTADOS_ACTIVOS })
-      .andWhere('o.fechaVencimiento IS NOT NULL')
-      .andWhere('o.fechaVencimiento::date BETWEEN CURRENT_DATE AND :limite::date', { limite: limiteStr })
+      .andWhere('o.fecha_vencimiento IS NOT NULL')
+      .andWhere('o.fecha_vencimiento::date BETWEEN CURRENT_DATE AND :limite::date', { limite: limiteStr })
       .orderBy('o.fechaVencimiento', 'ASC')
       .getMany();
   }
