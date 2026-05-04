@@ -489,11 +489,16 @@ export class OperacionesService {
   // ── Alertas de vencimiento próximo ────────────────────────────────────────
   async getAlertasVencimiento(dias = 14) {
     const ESTADOS_ACTIVOS = ['EN_COBRANZA', 'DESEMBOLSADO', 'PRORROGADO', 'RENOVADO'];
+    // Calcular la fecha límite en JS y pasarla como string para evitar
+    // el error "operator does not exist: date + integer" de PostgreSQL.
+    const limite = new Date();
+    limite.setDate(limite.getDate() + dias);
+    const limiteStr = limite.toISOString().split('T')[0];
     return this.operRepo
       .createQueryBuilder('o')
       .where('o.estado IN (:...estados)', { estados: ESTADOS_ACTIVOS })
       .andWhere('o.fechaVencimiento IS NOT NULL')
-      .andWhere("o.fechaVencimiento::date BETWEEN CURRENT_DATE AND CURRENT_DATE + :dias", { dias })
+      .andWhere('o.fechaVencimiento::date BETWEEN CURRENT_DATE AND :limite::date', { limite: limiteStr })
       .orderBy('o.fechaVencimiento', 'ASC')
       .getMany();
   }

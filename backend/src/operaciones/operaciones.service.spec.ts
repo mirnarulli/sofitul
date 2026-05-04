@@ -128,22 +128,38 @@ describe('OperacionesService.getAlertasVencimiento', () => {
     expect(result).toEqual(ops);
   });
 
-  it('usa 14 días como default', async () => {
+  it('usa 14 días como default y pasa fecha límite como string', async () => {
     const { svc, qb } = makeService({ operRows: [] });
+    const antes = new Date();
     await svc.getAlertasVencimiento(14);
-    // Verifica que andWhere fue llamado con el parámetro dias
+    const despues = new Date();
+    // Verifica que andWhere fue llamado con el parámetro :limite (fecha calculada en JS)
     const calls = (qb.andWhere as jest.Mock).mock.calls;
-    const diasCall = calls.find((c: unknown[]) => String(c[0]).includes(':dias'));
-    expect(diasCall).toBeDefined();
-    expect((diasCall as unknown[])[1]).toMatchObject({ dias: 14 });
+    const limiteCall = calls.find((c: unknown[]) => String(c[0]).includes(':limite'));
+    expect(limiteCall).toBeDefined();
+    const { limite } = (limiteCall as unknown[])[1] as { limite: string };
+    // La fecha límite debe estar entre hoy+14 y hoy+14 (±1 día por ejecución)
+    const limiteDate = new Date(limite + 'T00:00:00');
+    const expectedMin = new Date(antes); expectedMin.setDate(expectedMin.getDate() + 13);
+    const expectedMax = new Date(despues); expectedMax.setDate(expectedMax.getDate() + 15);
+    expect(limiteDate.getTime()).toBeGreaterThanOrEqual(expectedMin.setHours(0,0,0,0));
+    expect(limiteDate.getTime()).toBeLessThanOrEqual(expectedMax.setHours(0,0,0,0));
   });
 
-  it('pasa el parámetro dias al query', async () => {
+  it('pasa el parámetro dias como fecha límite al query', async () => {
     const { svc, qb } = makeService({ operRows: [] });
+    const antes = new Date();
     await svc.getAlertasVencimiento(30);
+    const despues = new Date();
     const calls = (qb.andWhere as jest.Mock).mock.calls;
-    const diasCall = calls.find((c: unknown[]) => String(c[0]).includes(':dias'));
-    expect((diasCall as unknown[])[1]).toMatchObject({ dias: 30 });
+    const limiteCall = calls.find((c: unknown[]) => String(c[0]).includes(':limite'));
+    expect(limiteCall).toBeDefined();
+    const { limite } = (limiteCall as unknown[])[1] as { limite: string };
+    const limiteDate = new Date(limite + 'T00:00:00');
+    const expectedMin = new Date(antes); expectedMin.setDate(expectedMin.getDate() + 29);
+    const expectedMax = new Date(despues); expectedMax.setDate(expectedMax.getDate() + 31);
+    expect(limiteDate.getTime()).toBeGreaterThanOrEqual(expectedMin.setHours(0,0,0,0));
+    expect(limiteDate.getTime()).toBeLessThanOrEqual(expectedMax.setHours(0,0,0,0));
   });
 });
 

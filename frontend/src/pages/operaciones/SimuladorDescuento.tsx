@@ -120,6 +120,9 @@ export default function SimuladorDescuento() {
   // Cheques (max 10)
   const [cheques, setCheques] = useState<Cheque[]>([{ ...CHEQUE_VACIO }]);
 
+  // Fila cuyo input de banco tiene foco (controla dropdown)
+  const [bancoFocusRow, setBancoFocusRow] = useState(-1);
+
   // Librador búsqueda por cheque (arrays paralelos a cheques)
   const [libradorBusqs,   setLibradorBusqs]   = useState<string[]>(['']);
   const [libradorOptsAll, setLibradorOptsAll] = useState<ContactoOption[][]>([[]]);
@@ -152,7 +155,7 @@ export default function SimuladorDescuento() {
   useEffect(() => {
     panelGlobalApi.getBancos()
       .then((data: any) => {
-        const arr = Array.isArray(data) ? data : [];
+        const arr = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
         setBancos(arr.filter((b: any) => b.activo !== false));
       })
       .catch(() => {});
@@ -237,8 +240,9 @@ export default function SimuladorDescuento() {
   // ── Búsqueda de librador por cheque (PF + PJ) con debounce ──────────
 
   const buscarLibrador = useCallback((i: number, q: string) => {
-    // Actualiza solo el buffer de texto visible — NO toca cheques[] en cada tecla
+    // Actualiza el buffer visible Y el campo librador del cheque
     setLibradorBusqs(prev => prev.map((v, idx) => idx === i ? q : v));
+    setCheques(prev => prev.map((c, idx) => idx === i ? { ...c, librador: q } : c));
 
     if (q.length < 2) {
       clearTimeout(libradorTimers.current[i]);
@@ -700,18 +704,40 @@ export default function SimuladorDescuento() {
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 align-top">
                     <td className="px-3 py-2 text-gray-400 text-xs pt-3">{i + 1}</td>
 
-                    {/* Banco — select nativo: sin dropdowns custom, sin race conditions */}
+                    {/* Banco — input con dropdown filtrado. onBlur con delay 200ms
+                        para que el onClick del item se registre antes de cerrar. */}
                     <td className="px-1 py-1">
-                      <select
-                        value={c.banco}
-                        onChange={e => updateCheque(i, 'banco', e.target.value)}
-                        className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                      >
-                        <option value="">— Seleccionar —</option>
-                        {bancos.map((b: any) => (
-                          <option key={b.id} value={b.nombre}>{b.nombre}</option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <input
+                          value={c.banco}
+                          onChange={e => updateCheque(i, 'banco', e.target.value)}
+                          onFocus={() => setBancoFocusRow(i)}
+                          onClick={() => setBancoFocusRow(i)}
+                          onBlur={() => setBancoFocusRow(-1)}
+                          placeholder="Banco..."
+                          autoComplete="off"
+                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                        />
+                        {bancoFocusRow === i && (() => {
+                          const q = c.banco.toLowerCase().trim();
+                          const filtered = q
+                            ? bancos.filter((b: any) => b.nombre.toLowerCase().includes(q))
+                            : bancos;
+                          if (!filtered.length) return null;
+                          if (q && filtered.length === 1 && filtered[0].nombre.toLowerCase() === q) return null;
+                          return (
+                            <div className="absolute z-40 left-0 w-56 bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-44 overflow-y-auto">
+                              {filtered.map((b: any) => (
+                                <button key={b.id}
+                                  onMouseDown={e => { e.preventDefault(); updateCheque(i, 'banco', b.nombre); setBancoFocusRow(-1); }}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0">
+                                  {b.nombre}
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </td>
 
                     {/* Librador — búsqueda PF + PJ con debounce 300ms.
@@ -723,10 +749,7 @@ export default function SimuladorDescuento() {
                           value={libradorBusqs[i] ?? ''}
                           onChange={e => buscarLibrador(i, e.target.value)}
                           onBlur={() => {
-                            setTimeout(() => {
-                              setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? [] : v));
-                              updateCheque(i, 'librador', libradorBusqs[i] ?? '');
-                            }, 200);
+                            setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? [] : v));
                           }}
                           placeholder="Buscar librador (nombre, CI o RUC)..."
                           autoComplete="off"
@@ -737,7 +760,7 @@ export default function SimuladorDescuento() {
                             {(libradorOptsAll[i] || []).map((o: ContactoOption) => (
                               <button
                                 key={o.id}
-                                onClick={() => seleccionarLibrador(i, o)}
+                                onMouseDown={e => { e.preventDefault(); seleccionarLibrador(i, o); }}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-100 last:border-0"
                               >
                                 <span className={`inline-block text-xs px-1.5 py-0.5 rounded mr-2 font-semibold ${o.tipo === 'pf' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
