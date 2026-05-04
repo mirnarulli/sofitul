@@ -38,20 +38,42 @@ const CHEQUE_VACIO: Cheque = {
   nroCheque: '', vencimiento: '', monto: '', tasaMensual: '',
 };
 
-// ── Días hábiles (excluye sábado, domingo y feriados cargados) ────────────
+// ── Helpers de fecha local (evita desfase por UTC en toISOString) ─────────
+
+function fechaLocal(d: Date): string {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+// ── Próximo día hábil (si la fecha cae en finde/feriado, avanza al siguiente) ──
+// Se usa para ajustar el vencimiento antes de calcular los días.
+
+function proximoHabilLocal(fecha: string, feriados: Set<string>): string {
+  const d = new Date(fecha + 'T00:00:00');
+  while (true) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6 && !feriados.has(fechaLocal(d))) return fechaLocal(d);
+    d.setDate(d.getDate() + 1);
+  }
+}
+
+// ── Días hábiles entre dos fechas.
+//    El vencimiento se ajusta al próximo día hábil si cae en finde/feriado. ──
 
 function calcDiasHabiles(from: string, to: string, feriados: Set<string>): number {
   if (!from || !to) return 0;
-  const start = new Date(from + 'T00:00:00');
-  const end   = new Date(to   + 'T00:00:00');
+  // Si el vencimiento cae sábado/domingo/feriado, mover al próximo día hábil
+  const toEfectivo = proximoHabilLocal(to, feriados);
+  const start = new Date(from       + 'T00:00:00');
+  const end   = new Date(toEfectivo + 'T00:00:00');
   if (end <= start) return 0;
   let count = 0;
   const curr = new Date(start);
-  curr.setDate(curr.getDate() + 1);           // el primer día que cuenta es el día siguiente
+  curr.setDate(curr.getDate() + 1);  // el primer día que cuenta es el día siguiente
   while (curr <= end) {
-    const dow      = curr.getDay();           // 0=Dom, 6=Sáb
-    const fechaStr = curr.toISOString().slice(0, 10);
-    if (dow !== 0 && dow !== 6 && !feriados.has(fechaStr)) count++;
+    const dow = curr.getDay();        // 0=Dom, 6=Sáb
+    if (dow !== 0 && dow !== 6 && !feriados.has(fechaLocal(curr))) count++;
     curr.setDate(curr.getDate() + 1);
   }
   return count;
@@ -80,8 +102,8 @@ export default function SimuladorDescuento() {
   const navigate = useNavigate();
   const empresa  = useEmpresa();
 
-  // Encabezado
-  const [fechaOperacion, setFechaOperacion] = useState(() => new Date().toISOString().slice(0, 10));
+  // Encabezado — fechaLocal evita el bug de toISOString() con UTC
+  const [fechaOperacion, setFechaOperacion] = useState(() => fechaLocal(new Date()));
   const [nroOperacion,   setNroOperacion]   = useState('');
   const [canal,          setCanal]          = useState('');
 
@@ -89,7 +111,6 @@ export default function SimuladorDescuento() {
   const [busquedaCliente, setBusquedaCliente] = useState('');
   const [clienteOpts,     setClienteOpts]     = useState<ContactoOption[]>([]);
   const [clienteSel,      setClienteSel]      = useState<ContactoOption | null>(null);
-  const [buscandoCliente, setBuscandoCliente] = useState(false);
 
   // Firmante (para PJ)
   const [busquedaFirmante, setBusquedaFirmante] = useState('');
@@ -98,9 +119,6 @@ export default function SimuladorDescuento() {
 
   // Cheques (max 10)
   const [cheques, setCheques] = useState<Cheque[]>([{ ...CHEQUE_VACIO }]);
-
-  // Banco búsqueda por cheque (array paralelo)
-  const [bancoBusqs, setBancoBusqs] = useState<string[]>(['']);
 
   // Librador búsqueda por cheque (arrays paralelos a cheques)
   const [libradorBusqs,   setLibradorBusqs]   = useState<string[]>(['']);
@@ -277,7 +295,6 @@ export default function SimuladorDescuento() {
   const agregarCheque = () => {
     if (cheques.length < 10) {
       setCheques(prev => [...prev, { ...CHEQUE_VACIO }]);
-      setBancoBusqs(prev => [...prev, '']);
       setLibradorBusqs(prev => [...prev, '']);
       setLibradorOptsAll(prev => [...prev, []]);
     }
@@ -286,7 +303,6 @@ export default function SimuladorDescuento() {
   const quitarCheque = (i: number) => {
     if (cheques.length > 1) {
       setCheques(prev => prev.filter((_, idx) => idx !== i));
-      setBancoBusqs(prev => prev.filter((_, idx) => idx !== i));
       setLibradorBusqs(prev => prev.filter((_, idx) => idx !== i));
       setLibradorOptsAll(prev => prev.filter((_, idx) => idx !== i));
     }
@@ -311,7 +327,7 @@ export default function SimuladorDescuento() {
   const maxVencDate = (() => {
     const d = new Date(fechaOperacion + 'T00:00:00');
     d.setDate(d.getDate() + 180);
-    return d.toISOString().slice(0, 10);
+    return fechaLocal(d);  // fechaLocal evita desfase UTC
   })();
 
   const vencStatus = (venc: string): '' | 'ok' | 'pasada' | 'excede180' => {
