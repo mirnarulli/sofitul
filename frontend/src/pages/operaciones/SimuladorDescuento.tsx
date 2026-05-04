@@ -101,14 +101,10 @@ export default function SimuladorDescuento() {
 
   // Banco búsqueda por cheque (array paralelo)
   const [bancoBusqs, setBancoBusqs] = useState<string[]>(['']);
-  // Fila cuyo input de banco tiene foco (controla visibilidad del dropdown)
-  const [activeBancoRow, setActiveBancoRow] = useState<number>(-1);
 
   // Librador búsqueda por cheque (arrays paralelos a cheques)
   const [libradorBusqs,   setLibradorBusqs]   = useState<string[]>(['']);
   const [libradorOptsAll, setLibradorOptsAll] = useState<ContactoOption[][]>([[]]);
-  // Fila cuyo input de librador tiene foco
-  const [activeLibradorRow, setActiveLibradorRow] = useState<number>(-1);
 
   // Bancos (Panel Global)
   const [bancos, setBancos] = useState<any[]>([]);
@@ -263,7 +259,7 @@ export default function SimuladorDescuento() {
   const seleccionarLibrador = (i: number, o: ContactoOption) => {
     const nombre = o.label.split(' · ')[0];
     setCheques(prev => prev.map((c, idx) => idx === i ? { ...c, librador: nombre, rucLibrador: o.doc } : c));
-    setLibradorBusqs(prev => prev.map((v, idx) => idx === i ? o.label : v));
+    setLibradorBusqs(prev => prev.map((v, idx) => idx === i ? nombre : v));
     setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? [] : v));
   };
 
@@ -683,70 +679,52 @@ export default function SimuladorDescuento() {
                   <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 align-top">
                     <td className="px-3 py-2 text-gray-400 text-xs pt-3">{i + 1}</td>
 
-                    {/* Banco — búsqueda local veloz.
-                        activeBancoRow controla visibilidad; onMouseDown+preventDefault
-                        evita que onBlur dispare antes del click en el item. */}
+                    {/* Banco — datalist nativo: el browser maneja el dropdown,
+                        sin race conditions de estado React. */}
                     <td className="px-1 py-1">
-                      <div className="relative">
-                        <input
-                          value={bancoBusqs[i] ?? ''}
-                          onChange={e => setBancoBusqs(prev => prev.map((x, idx) => idx === i ? e.target.value : x))}
-                          onFocus={() => setActiveBancoRow(i)}
-                          onBlur={() => { setActiveBancoRow(-1); updateCheque(i, 'banco', bancoBusqs[i] ?? ''); }}
-                          placeholder="Buscar banco..."
-                          autoComplete="off"
-                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
-                        {activeBancoRow === i && (() => {
-                          const q = (bancoBusqs[i] ?? '').toLowerCase().trim();
-                          if (!q) return null;
-                          const filtered = bancos.filter((b: any) => b.nombre.toLowerCase().includes(q));
-                          if (filtered.length === 0) return null;
-                          if (filtered.length === 1 && filtered[0].nombre.toLowerCase() === q) return null;
-                          return (
-                            <div className="absolute z-40 left-0 w-64 bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-44 overflow-y-auto">
-                              {filtered.map((b: any) => (
-                                <button
-                                  key={b.id}
-                                  onMouseDown={e => {
-                                    e.preventDefault(); // evita blur antes del click
-                                    updateCheque(i, 'banco', b.nombre);
-                                    setBancoBusqs(prev => prev.map((x, idx) => idx === i ? b.nombre : x));
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
-                                >
-                                  {b.nombre}
-                                </button>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
+                      <input
+                        list={`bancos-list-${i}`}
+                        value={bancoBusqs[i] ?? ''}
+                        onChange={e => {
+                          const v = e.target.value;
+                          setBancoBusqs(prev => prev.map((x, idx) => idx === i ? v : x));
+                          if (bancos.some((b: any) => b.nombre === v)) updateCheque(i, 'banco', v);
+                        }}
+                        onBlur={() => updateCheque(i, 'banco', bancoBusqs[i] ?? '')}
+                        placeholder="Buscar banco..."
+                        className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                      <datalist id={`bancos-list-${i}`}>
+                        {bancos.map((b: any) => (
+                          <option key={b.id} value={b.nombre} />
+                        ))}
+                      </datalist>
                     </td>
 
                     {/* Librador — búsqueda PF + PJ con debounce 300ms.
-                        activeLibradorRow controla visibilidad; onMouseDown+preventDefault
-                        evita que onBlur dispare antes del click en el item. */}
+                        onBlur usa setTimeout(200) para que el click en el item
+                        se registre antes de cerrar el dropdown. */}
                     <td className="px-1 py-1">
                       <div className="relative">
                         <input
                           value={libradorBusqs[i] ?? ''}
                           onChange={e => buscarLibrador(i, e.target.value)}
-                          onFocus={() => setActiveLibradorRow(i)}
-                          onBlur={() => { setActiveLibradorRow(-1); updateCheque(i, 'librador', libradorBusqs[i] ?? ''); }}
+                          onBlur={() => {
+                            setTimeout(() => {
+                              setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? [] : v));
+                              updateCheque(i, 'librador', libradorBusqs[i] ?? '');
+                            }, 200);
+                          }}
                           placeholder="Buscar librador (nombre, CI o RUC)..."
                           autoComplete="off"
                           className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
                         />
-                        {activeLibradorRow === i && (libradorOptsAll[i] || []).length > 0 && (
+                        {(libradorOptsAll[i] || []).length > 0 && (
                           <div className="absolute z-30 left-0 min-w-[280px] bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-52 overflow-y-auto">
                             {(libradorOptsAll[i] || []).map((o: ContactoOption) => (
                               <button
                                 key={o.id}
-                                onMouseDown={e => {
-                                  e.preventDefault(); // evita blur antes del click
-                                  seleccionarLibrador(i, o);
-                                }}
+                                onClick={() => seleccionarLibrador(i, o)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-100 last:border-0"
                               >
                                 <span className={`inline-block text-xs px-1.5 py-0.5 rounded mr-2 font-semibold ${o.tipo === 'pf' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
