@@ -122,7 +122,7 @@ echo "  → Migraciones OK"
 echo "  → Desplegando backend..."
 mkdir -p $APP_DIR/backend
 cd $APP_DIR/backend
-tar -xzf /tmp/sofitul_backend_dist.tar.gz
+tar -xzf /tmp/sofitul_backend_dist.tar.gz --overwrite
 pnpm install --prod --frozen-lockfile
 rm -f /tmp/sofitul_backend_dist.tar.gz
 echo "  → Backend OK"
@@ -136,7 +136,7 @@ echo "  → Frontend OK"
 
 echo "  → Reiniciando backend PM2..."
 pm2 describe sofitul-backend > /dev/null 2>&1 && \
-  pm2 restart sofitul-backend || \
+  pm2 reload sofitul-backend --update-env || \
   pm2 start $APP_DIR/backend/dist/main.js --name sofitul-backend \
     --env production
 echo "  → PM2 OK"
