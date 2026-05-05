@@ -82,20 +82,29 @@ function calcDiasHabiles(from: string, to: string, feriados: Set<string>): numbe
   return count;
 }
 
-// ── Días corridos hasta el vencimiento efectivo.
-//    Se cuentan TODOS los días del calendario (corridos), NO solo hábiles.
-//    El vencimiento se ajusta al próximo día hábil si cae en finde/feriado —
-//    esos días extra suman a la financiación (más días = más interés).
-//    Ejemplo: vto viernes → 0 días extra.  vto sábado → 2 días extra (hasta lunes).
+// ── Días corridos hasta la fecha ESCRITA en el cheque (sin ajuste) ────────
+// Es la cuenta "raw" del papel: cuántos días hay entre hoy y el vto. nominal.
+// Se usa para mostrar en la tabla de detalles (lo que dice el cheque).
 
-function calcDiasCorridos(from: string, to: string, feriados: Set<string>): number {
+function calcDiasCorridos(from: string, to: string): number {
   if (!from || !to) return 0;
-  // Ajustar al próximo día hábil si cae en finde/feriado
+  const start = new Date(from + 'T00:00:00');
+  const end   = new Date(to   + 'T00:00:00');
+  if (end <= start) return 0;
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000);
+}
+
+// ── Días imputables: corridos hasta el vencimiento EFECTIVO ───────────────
+// Si el vto. cae en finde/feriado → avanza al próximo día hábil (que tampoco
+// sea feriado). Esos días extra SUMAN a la financiación.
+// Es el valor que va a la fórmula de interés y a la tabla de liquidación.
+
+function calcDiasImputables(from: string, to: string, feriados: Set<string>): number {
+  if (!from || !to) return 0;
   const toEfectivo = proximoHabilLocal(to, feriados);
   const start = new Date(from       + 'T00:00:00');
   const end   = new Date(toEfectivo + 'T00:00:00');
   if (end <= start) return 0;
-  // Todos los días corridos: diferencia en ms ÷ ms-por-día
   return Math.round((end.getTime() - start.getTime()) / 86_400_000);
 }
 
@@ -319,7 +328,8 @@ export default function SimuladorDescuento() {
 
   const agregarCheque = () => {
     if (cheques.length < 10) {
-      setCheques(prev => [...prev, { ...CHEQUE_VACIO }]);
+      // El nuevo cheque hereda la tasa global activa (o vacío si no hay tasa global)
+      setCheques(prev => [...prev, { ...CHEQUE_VACIO, tasaMensual: tasaGlobal }]);
       setLibradorBusqs(prev => [...prev, '']);
       setLibradorOptsAll(prev => [...prev, []]);
     }
@@ -335,9 +345,10 @@ export default function SimuladorDescuento() {
 
   // ── Cálculos ──────────────────────────────────────────────────────────
 
-  // calcDiasFn cierra sobre `feriados` — lo pasamos a calcularLiquidacion
+  // calcDiasFn cierra sobre `feriados` — usa días IMPUTABLES para la fórmula de interés
+  // (si el vto. cae en finde/feriado, los días extra hasta el próximo hábil suman)
   const calcDiasFn = useCallback(
-    (from: string, to: string) => calcDiasCorridos(from, to, feriados),
+    (from: string, to: string) => calcDiasImputables(from, to, feriados),
     [feriados],
   );
 
@@ -362,8 +373,10 @@ export default function SimuladorDescuento() {
     return 'ok';
   };
 
-  // Días hábiles desde fechaOperacion hasta vencimiento (excluye fines de semana y feriados)
-  const calcDias = (venc: string): number => calcDiasCorridos(fechaOperacion, venc, feriados);
+  // Días corridos (raw) hasta la fecha ESCRITA — sección 3, sin ajuste por feriados
+  const calcDiasCorr = (venc: string): number => calcDiasCorridos(fechaOperacion, venc);
+  // Días imputables hasta el vencimiento EFECTIVO — sección 4 y fórmula de interés
+  const calcDiasImp  = (venc: string): number => calcDiasImputables(fechaOperacion, venc, feriados);
 
   // ── Tasa global + carga desde Producto Financiero ────────────────────
   const [tasaGlobal, setTasaGlobal] = useState('');
@@ -530,10 +543,12 @@ export default function SimuladorDescuento() {
       <DocFooter nroDoc={nroOperacion || undefined} label="Liquidación N°" />
     </div>
 
-    {/* ── CSS: al imprimir, ocultar UI y mostrar solo liquidación ── */}
+    {/* ── CSS: al imprimir, ocultar UI y mostrar solo liquidación ──
+        NOTA: "body > *" selecciona #root (container React), no los divs hijos.
+        Usamos "#root > *" para ocultar los hijos directos correctamente. */}
     <style>{`
       @media print {
-        body > *:not(#liquidacion-sim-root) { display: none !important; }
+        #root > *:not(#liquidacion-sim-root) { display: none !important; }
         #liquidacion-sim-root { display: block !important; }
         @page { size: A4 portrait; margin: 18mm 20mm; }
       }
@@ -579,9 +594,9 @@ export default function SimuladorDescuento() {
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">N° Operación</label>
-            <input value={nroOperacion} onChange={e => setNroOperacion(e.target.value)}
-              placeholder="OP-26-01001"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm font-mono text-gray-500 select-all">
+              {nroOperacion || <span className="italic text-gray-400 font-sans font-normal">Se asigna al guardar</span>}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Fecha de Operación</label>
@@ -718,9 +733,8 @@ export default function SimuladorDescuento() {
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">RUC/CI Librador</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">N° Cheque</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Vencimiento</th>
-                <th className="text-center px-2 py-2 text-xs font-medium text-gray-500" title="Días imputables (corridos) hasta vencimiento efectivo. Si el vto. cae en fin de semana o feriado, los días extra suman a la financiación.">Días imp.</th>
+                <th className="text-center px-2 py-2 text-xs font-medium text-gray-500" title="Días corridos hasta la fecha escrita en el cheque (sin ajuste por feriados ni fines de semana)">Días</th>
                 <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Monto (Gs.)</th>
-                <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Tasa %/mes</th>
                 <th className="w-8"></th>
               </tr>
             </thead>
@@ -837,17 +851,17 @@ export default function SimuladorDescuento() {
                       )}
                     </td>
 
-                    {/* Días — calculado desde fechaOperacion, independiente del monto */}
+                    {/* Días corridos (raw) — fecha escrita en el cheque, sin ajuste */}
                     <td className="px-1 py-2 text-center align-middle">
                       {c.vencimiento ? (
                         <span className={`text-xs font-mono font-semibold px-1.5 py-0.5 rounded ${
                           vencInvalido
                             ? 'bg-red-100 text-red-700'
-                            : calcDias(c.vencimiento) > 0
+                            : calcDiasCorr(c.vencimiento) > 0
                               ? 'bg-blue-50 text-blue-700'
                               : 'text-gray-400'
                         }`}>
-                          {calcDias(c.vencimiento) > 0 ? `${calcDias(c.vencimiento)}d` : '—'}
+                          {calcDiasCorr(c.vencimiento) > 0 ? `${calcDiasCorr(c.vencimiento)}d` : '—'}
                         </span>
                       ) : (
                         <span className="text-gray-300 text-xs">—</span>
@@ -859,13 +873,6 @@ export default function SimuladorDescuento() {
                       <input value={c.monto} onChange={e => updateCheque(i, 'monto', e.target.value)}
                         placeholder="0"
                         className="w-32 border-0 bg-transparent px-2 py-1 text-sm text-right font-mono focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
-                    </td>
-
-                    {/* Tasa */}
-                    <td className="px-1 py-1">
-                      <input type="number" value={c.tasaMensual} onChange={e => updateCheque(i, 'tasaMensual', e.target.value)}
-                        min="0" max="100" step="0.5" placeholder="0"
-                        className="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-center font-medium text-blue-700 focus:ring-2 focus:ring-blue-500" />
                     </td>
 
                     {/* Quitar */}
@@ -904,7 +911,7 @@ export default function SimuladorDescuento() {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">#</th>
                   <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Vencimiento</th>
-                  <th className="text-center px-3 py-2 text-xs font-medium text-gray-500" title="Días imputables (corridos) hasta vencimiento efectivo. Si el vto. cae en fin de semana o feriado, los días extra suman a la financiación.">Días imp.</th>
+                  <th className="text-center px-3 py-2 text-xs font-medium text-gray-500" title="Días imputables: corridos hasta el vencimiento EFECTIVO. Si cae en finde/feriado → siguiente día hábil. Estos días van a la fórmula de interés.">Días imp.</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Monto Cheque</th>
                   <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Tasa %/mes</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 text-orange-600">Interés (Gs.)</th>
@@ -914,17 +921,35 @@ export default function SimuladorDescuento() {
               <tbody>
                 {cheques.map((c, i) => {
                   if (!c.vencimiento) return null;
-                  const l   = liquidacion[i];
-                  const dias = calcDias(c.vencimiento);
+                  const l    = liquidacion[i];
+                  const dias = calcDiasImp(c.vencimiento);
                   const vs   = vencStatus(c.vencimiento);
+                  // Indicador de día para sección 4
+                  const dVto    = new Date(c.vencimiento + 'T00:00:00');
+                  const dowVto  = dVto.getDay();
+                  const nomVto  = DIAS_SEMANA[dowVto];
+                  const ajustaVto = dowVto === 0 || dowVto === 6 || feriados.has(c.vencimiento);
+                  const efectivoVto = ajustaVto ? proximoHabilLocal(c.vencimiento, feriados) : null;
+                  const dEfecVto = efectivoVto ? new Date(efectivoVto + 'T00:00:00') : null;
                   return (
                     <tr key={i} className="border-b border-gray-100">
                       <td className="px-3 py-2 text-gray-400 text-xs">{i + 1}</td>
                       <td className="px-3 py-2 text-gray-700">
-                        {new Date(c.vencimiento + 'T00:00:00').toLocaleDateString('es-PY')}
-                        {(vs === 'pasada' || vs === 'excede180') && (
-                          <span className="ml-1 text-red-500 text-xs">⚠</span>
-                        )}
+                        <div>{new Date(c.vencimiento + 'T00:00:00').toLocaleDateString('es-PY')}
+                          {(vs === 'pasada' || vs === 'excede180') && (
+                            <span className="ml-1 text-red-500 text-xs">⚠</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className={`text-xs font-semibold ${ajustaVto ? 'text-orange-500' : 'text-gray-400'}`}>
+                            {nomVto}
+                          </span>
+                          {ajustaVto && dEfecVto && (
+                            <span className="text-xs text-gray-400 whitespace-nowrap">
+                              → {DIAS_SEMANA[dEfecVto.getDay()]} {String(dEfecVto.getDate()).padStart(2,'0')}/{String(dEfecVto.getMonth()+1).padStart(2,'0')}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-center font-mono">
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
@@ -940,7 +965,11 @@ export default function SimuladorDescuento() {
                       <td className="px-3 py-2 text-right font-mono">
                         {l.monto > 0 ? formatGs(l.monto) : <span className="text-gray-300 text-xs">sin monto</span>}
                       </td>
-                      <td className="px-3 py-2 text-center text-blue-700 font-medium">{c.tasaMensual || '—'}%</td>
+                      <td className="px-3 py-2 text-center">
+                        <input type="number" value={c.tasaMensual} onChange={e => updateCheque(i, 'tasaMensual', e.target.value)}
+                          min="0" max="100" step="0.5" placeholder="0"
+                          className="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-center font-medium text-blue-700 focus:ring-2 focus:ring-blue-500" />
+                      </td>
                       <td className="px-3 py-2 text-right font-mono text-orange-600">
                         {l.monto > 0 ? formatGs(l.interes) : <span className="text-gray-300 text-xs">—</span>}
                       </td>
