@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import { BitacoraService } from '../bitacora/bitacora.service';
+import { ConfiguracionService } from '../configuracion/configuracion.service';
 
 @Injectable()
 export class AuthService {
@@ -14,11 +15,14 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
     private bitacora: BitacoraService,
+    private configuracion: ConfiguracionService,
   ) {}
 
   // ── Token helpers ─────────────────────────────────────────────────────────
-  private generateTokens(payload: { sub: string; email: string; rolId: string | null; rolCodigo: string | null }) {
-    const access_token  = this.jwtService.sign(payload);
+  private async generateTokens(payload: { sub: string; email: string; rolId: string | null; rolCodigo: string | null }) {
+    const horas = await this.configuracion.getSessionDuracionHoras();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const access_token  = this.jwtService.sign(payload, { expiresIn: `${horas}h` as any });
     const refresh_token = this.jwtService.sign(
       { ...payload, type: 'refresh' },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,7 +61,7 @@ export class AuthService {
     });
 
     const payload = { sub: usuario.id, email: usuario.email, rolId: usuario.rolId, rolCodigo };
-    const tokens  = this.generateTokens(payload);
+    const tokens  = await this.generateTokens(payload);
 
     return {
       ...tokens,
@@ -102,7 +106,7 @@ export class AuthService {
     const rol = await this.usersService.getRolById(usuario.rolId);
     const rolCodigo = rol?.codigo ?? null;
     const payload = { sub: usuario.id, email: usuario.email, rolId: usuario.rolId, rolCodigo };
-    const tokens  = this.generateTokens(payload);
+    const tokens  = await this.generateTokens(payload);
     return {
       ...tokens,
       usuario: { id: usuario.id, email: usuario.email, primerNombre: usuario.primerNombre, primerApellido: usuario.primerApellido, rolCodigo },
@@ -182,6 +186,6 @@ export class AuthService {
     const payload  = { sub: usuario.id, email: usuario.email, rolId: usuario.rolId, rolCodigo };
 
     this.logger.log(`Token renovado para ${usuario.email}`);
-    return this.generateTokens(payload);
+    return this.generateTokens(payload); // already async, caller awaits
   }
 }

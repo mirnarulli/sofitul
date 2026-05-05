@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Configuracion } from '../entities';
 
 @Injectable()
@@ -41,5 +41,31 @@ export class ConfiguracionService {
       empresa_direccion:  m['empresa_direccion']  ?? '',
       empresa_ciudad:     m['empresa_ciudad']      ?? 'Asunción, Paraguay',
     };
+  }
+
+  // ── Seguridad / Sesiones ──────────────────────────────────────────────────
+
+  async getSeguridad(): Promise<{ session_duracion_horas: number; sesion_inactividad_minutos: number }> {
+    const rows = await this.repo.findBy({ clave: In(['session_duracion_horas', 'sesion_inactividad_minutos']) });
+    const map  = Object.fromEntries(rows.map(r => [r.clave, r.valor]));
+    return {
+      session_duracion_horas:     Number(map['session_duracion_horas']     ?? 8),
+      sesion_inactividad_minutos: Number(map['sesion_inactividad_minutos'] ?? 120),
+    };
+  }
+
+  async setSeguridad(data: { session_duracion_horas?: number; sesion_inactividad_minutos?: number }): Promise<void> {
+    const entries: { clave: string; valor: string }[] = [];
+    if (data.session_duracion_horas !== undefined)
+      entries.push({ clave: 'session_duracion_horas',     valor: String(data.session_duracion_horas) });
+    if (data.sesion_inactividad_minutos !== undefined)
+      entries.push({ clave: 'sesion_inactividad_minutos', valor: String(data.sesion_inactividad_minutos) });
+    for (const e of entries) await this.repo.upsert(e, ['clave']);
+  }
+
+  /** Shortcut para auth.service — duración del JWT en horas */
+  async getSessionDuracionHoras(): Promise<number> {
+    const row = await this.repo.findOneBy({ clave: 'session_duracion_horas' });
+    return Number(row?.valor ?? 8);
   }
 }

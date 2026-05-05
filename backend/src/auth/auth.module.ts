@@ -7,6 +7,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { MailModule } from '../mail/mail.module';
 import { BitacoraModule } from '../bitacora/bitacora.module';
+import { ConfiguracionModule } from '../configuracion/configuracion.module';
 
 @Module({
   imports: [
@@ -14,12 +15,13 @@ import { BitacoraModule } from '../bitacora/bitacora.module';
     JwtModule.registerAsync({
       useFactory: () => ({
         secret: process.env.JWT_SECRET ?? (() => { throw new Error('JWT_SECRET no configurado'); })(),
-        signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '24h') as any },
+        signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '8h') as any },
       }),
     }),
     UsersModule,
     MailModule,
     BitacoraModule,
+    ConfiguracionModule,
   ],
   providers: [AuthService, JwtStrategy],
   controllers: [AuthController],

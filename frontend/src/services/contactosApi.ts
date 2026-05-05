@@ -61,6 +61,11 @@ export const panelGlobalApi = {
 
   getLogos:          ()                        => api.get('/configuracion/logos').then(r => r.data),
 
+  // Seguridad / Sesiones
+  getSeguridad:      ()                        => api.get('/configuracion/seguridad').then(r => r.data),
+  setSeguridad:      (b: { session_duracion_horas?: number; sesion_inactividad_minutos?: number }) =>
+    api.patch('/configuracion/seguridad', b).then(r => r.data),
+
   // Canales
   getCanales:        ()                        => api.get('/canales').then(r => r.data),
   getCanalesActivos: ()                        => api.get('/canales/activos').then(r => r.data),

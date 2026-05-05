@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save } from 'lucide-react';
+import { Save, ShieldCheck } from 'lucide-react';
 import { panelGlobalApi } from '../../services/contactosApi';
 
 // ── Parámetros financieros conocidos — sección dedicada con labels y tipos ──
@@ -46,11 +46,22 @@ export default function Configuracion() {
   const [saving,  setSaving]    = useState(false);
   const [cambios, setCambios]   = useState<Record<string, string>>({});
 
+  // ── Seguridad / Sesiones ──────────────────────────────────────────────────
+  const [seguridad, setSeguridad] = useState<{ session_duracion_horas: number; sesion_inactividad_minutos: number } | null>(null);
+  const [segCambios, setSegCambios] = useState<{ session_duracion_horas?: number; sesion_inactividad_minutos?: number }>({});
+  const [savingSeg, setSavingSeg]   = useState(false);
+
   useEffect(() => {
     panelGlobalApi.getConfiguraciones()
       .then(setConfigs)
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    panelGlobalApi.getSeguridad()
+      .then(setSeguridad)
+      .catch(() => {});
   }, []);
 
   const handleChange = (clave: string, valor: string) => {
@@ -72,6 +83,20 @@ export default function Configuracion() {
       alert('Error al guardar configuraciones.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGuardarSeguridad = async () => {
+    setSavingSeg(true);
+    try {
+      await panelGlobalApi.setSeguridad(segCambios);
+      setSegCambios({});
+      const updated = await panelGlobalApi.getSeguridad();
+      setSeguridad(updated);
+    } catch {
+      alert('Error al guardar configuración de seguridad.');
+    } finally {
+      setSavingSeg(false);
     }
   };
 
@@ -188,6 +213,78 @@ export default function Configuracion() {
           No hay parámetros configurados.
         </div>
       )}
+
+      {/* ── Sección: Seguridad y Sesiones ── */}
+      <div className="bg-white rounded-xl border border-amber-200">
+        <div className="px-5 py-3 border-b border-amber-100 bg-amber-50 rounded-t-xl flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-amber-800 uppercase tracking-wide flex items-center gap-2">
+              <ShieldCheck size={15} /> Seguridad y Sesiones
+            </h2>
+            <p className="text-xs text-amber-600 mt-0.5">
+              Duración del token JWT y tiempo de inactividad para cierre automático de sesión
+            </p>
+          </div>
+          {Object.keys(segCambios).length > 0 && (
+            <button onClick={handleGuardarSeguridad} disabled={savingSeg}
+              className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 text-sm font-medium disabled:opacity-50">
+              <Save size={15} /> {savingSeg ? 'Guardando...' : 'Guardar'}
+            </button>
+          )}
+        </div>
+
+        {seguridad ? (
+          <div className="divide-y divide-gray-100">
+            {/* Duración sesión */}
+            <div className="flex items-center gap-4 px-5 py-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-800">Duración de sesión</p>
+                <p className="text-xs text-gray-400 mt-0.5">Tiempo de validez del token JWT tras el login</p>
+                <p className="text-xs text-gray-300 font-mono mt-0.5">session_duracion_horas</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min={1} max={72} step={1}
+                  value={segCambios.session_duracion_horas ?? seguridad.session_duracion_horas}
+                  onChange={e => setSegCambios(c => ({ ...c, session_duracion_horas: Number(e.target.value) }))}
+                  className={`w-20 px-3 py-2 border rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                    'session_duracion_horas' in segCambios ? 'border-amber-400 bg-amber-50' : 'border-gray-300'
+                  }`}
+                />
+                <span className="text-xs text-gray-400 w-12">horas</span>
+              </div>
+            </div>
+
+            {/* Inactividad */}
+            <div className="flex items-center gap-4 px-5 py-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-800">Tiempo de inactividad</p>
+                <p className="text-xs text-gray-400 mt-0.5">La sesión se cierra automáticamente si no hay actividad del usuario</p>
+                <p className="text-xs text-gray-300 font-mono mt-0.5">sesion_inactividad_minutos</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min={5} max={480} step={5}
+                  value={segCambios.sesion_inactividad_minutos ?? seguridad.sesion_inactividad_minutos}
+                  onChange={e => setSegCambios(c => ({ ...c, sesion_inactividad_minutos: Number(e.target.value) }))}
+                  className={`w-20 px-3 py-2 border rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                    'sesion_inactividad_minutos' in segCambios ? 'border-amber-400 bg-amber-50' : 'border-gray-300'
+                  }`}
+                />
+                <span className="text-xs text-gray-400 w-12">minutos</span>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 bg-yellow-50 rounded-b-xl">
+              <p className="text-xs text-yellow-700">
+                ⚠ Los cambios en la duración de sesión aplican solo a los nuevos logins. Las sesiones activas no se ven afectadas hasta que el token expire o el usuario vuelva a ingresar.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="px-5 py-4 text-sm text-gray-400">Cargando configuración de seguridad...</div>
+        )}
+      </div>
 
     </div>
   );

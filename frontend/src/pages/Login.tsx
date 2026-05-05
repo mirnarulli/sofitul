@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import authApi from '../services/authApi';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const motivo   = new URLSearchParams(location.search).get('motivo');
+
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState('');
@@ -34,6 +37,12 @@ export default function Login() {
             <h1 className="text-3xl font-bold text-blue-700 tracking-tight">SOFITUL</h1>
             <p className="text-sm text-gray-500 mt-1">Sistema de Operaciones Financieras</p>
           </div>
+
+          {motivo === 'inactividad' && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-700 text-sm px-3 py-2.5 rounded-lg text-center">
+              Tu sesión fue cerrada por inactividad. Volvé a ingresar.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

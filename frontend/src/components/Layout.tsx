@@ -9,6 +9,7 @@ import {
 import { useLogos } from '../context/LogosContext';
 import { canView, type Modulo } from '../utils/permisos';
 import BusquedaGlobal from './BusquedaGlobal';
+import { panelGlobalApi } from '../services/contactosApi';
 
 const LayoutMountedCtx = createContext(false);
 
@@ -145,6 +146,42 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         .then((data: any[]) => setAlertasVencimiento(data.length))
         .catch(() => {});
     });
+  }, []);
+
+  // ── Idle timeout ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    let timeoutMs = 120 * 60 * 1000; // default 2 h
+    let timerId: ReturnType<typeof setTimeout>;
+
+    const doLogout = () => {
+      clearTimeout(timerId);
+      localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('usuario');
+      navigate('/login?motivo=inactividad');
+    };
+
+    const reset = () => {
+      clearTimeout(timerId);
+      timerId = setTimeout(doLogout, timeoutMs);
+    };
+
+    panelGlobalApi.getSeguridad()
+      .then((d: any) => { timeoutMs = (d.sesion_inactividad_minutos ?? 120) * 60 * 1000; })
+      .catch(() => {})
+      .finally(() => reset());
+
+    const EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
+    EVENTS.forEach(ev => window.addEventListener(ev, reset, { passive: true }));
+
+    return () => {
+      clearTimeout(timerId);
+      EVENTS.forEach(ev => window.removeEventListener(ev, reset));
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleCollapsed = () => {
