@@ -58,25 +58,21 @@ function proximoHabilLocal(fecha: string, feriados: Set<string>): string {
   }
 }
 
-// ── Días hábiles entre dos fechas.
-//    El vencimiento se ajusta al próximo día hábil si cae en finde/feriado. ──
+// ── Días corridos hasta el vencimiento efectivo.
+//    Se cuentan TODOS los días del calendario (corridos), NO solo hábiles.
+//    El vencimiento se ajusta al próximo día hábil si cae en finde/feriado —
+//    esos días extra suman a la financiación (más días = más interés).
+//    Ejemplo: vto viernes → 0 días extra.  vto sábado → 2 días extra (hasta lunes).
 
-function calcDiasHabiles(from: string, to: string, feriados: Set<string>): number {
+function calcDiasCorridos(from: string, to: string, feriados: Set<string>): number {
   if (!from || !to) return 0;
-  // Si el vencimiento cae sábado/domingo/feriado, mover al próximo día hábil
+  // Ajustar al próximo día hábil si cae en finde/feriado
   const toEfectivo = proximoHabilLocal(to, feriados);
   const start = new Date(from       + 'T00:00:00');
   const end   = new Date(toEfectivo + 'T00:00:00');
   if (end <= start) return 0;
-  let count = 0;
-  const curr = new Date(start);
-  curr.setDate(curr.getDate() + 1);  // el primer día que cuenta es el día siguiente
-  while (curr <= end) {
-    const dow = curr.getDay();        // 0=Dom, 6=Sáb
-    if (dow !== 0 && dow !== 6 && !feriados.has(fechaLocal(curr))) count++;
-    curr.setDate(curr.getDate() + 1);
-  }
-  return count;
+  // Todos los días corridos: diferencia en ms ÷ ms-por-día
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000);
 }
 
 // ── Lógica de cálculo ──────────────────────────────────────────────────────
@@ -317,7 +313,7 @@ export default function SimuladorDescuento() {
 
   // calcDiasFn cierra sobre `feriados` — lo pasamos a calcularLiquidacion
   const calcDiasFn = useCallback(
-    (from: string, to: string) => calcDiasHabiles(from, to, feriados),
+    (from: string, to: string) => calcDiasCorridos(from, to, feriados),
     [feriados],
   );
 
@@ -343,7 +339,7 @@ export default function SimuladorDescuento() {
   };
 
   // Días hábiles desde fechaOperacion hasta vencimiento (excluye fines de semana y feriados)
-  const calcDias = (venc: string): number => calcDiasHabiles(fechaOperacion, venc, feriados);
+  const calcDias = (venc: string): number => calcDiasCorridos(fechaOperacion, venc, feriados);
 
   // ── Tasa global + carga desde Producto Financiero ────────────────────
   const [tasaGlobal, setTasaGlobal] = useState('');
@@ -698,7 +694,7 @@ export default function SimuladorDescuento() {
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">RUC/CI Librador</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">N° Cheque</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Vencimiento</th>
-                <th className="text-center px-2 py-2 text-xs font-medium text-gray-500" title="Días hábiles (excluye sábados, domingos y feriados)">Días háb.</th>
+                <th className="text-center px-2 py-2 text-xs font-medium text-gray-500" title="Días corridos hasta vencimiento efectivo. Si el vto. cae en fin de semana o feriado, se suma hasta el siguiente día hábil.">Días</th>
                 <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Monto (Gs.)</th>
                 <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Tasa %/mes</th>
                 <th className="w-8"></th>
@@ -861,7 +857,7 @@ export default function SimuladorDescuento() {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">#</th>
                   <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Vencimiento</th>
-                  <th className="text-center px-3 py-2 text-xs font-medium text-gray-500" title="Días hábiles (excluye sábados, domingos y feriados)">Días háb.</th>
+                  <th className="text-center px-3 py-2 text-xs font-medium text-gray-500" title="Días corridos hasta vencimiento efectivo. Si el vto. cae en fin de semana o feriado, se suma hasta el siguiente día hábil.">Días</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Monto Cheque</th>
                   <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Tasa %/mes</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 text-orange-600">Interés (Gs.)</th>
