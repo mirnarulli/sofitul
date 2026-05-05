@@ -57,6 +57,8 @@ export default function OperacionDetalle() {
   const navigate = useNavigate();
   const [op,      setOp]      = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [estados, setEstados] = useState<any[]>([]);
   const [nuevoEstado, setNuevoEstado] = useState('');
   const [nota,    setNota]    = useState('');
@@ -111,6 +113,7 @@ export default function OperacionDetalle() {
 
   useEffect(() => {
     if (!id) return;
+    setLoadError(null);
     Promise.all([operacionesApi.getById(id), operacionesApi.getEstados()])
       .then(([o, e]) => {
         setOp(o); setEstados(e);
@@ -124,13 +127,20 @@ export default function OperacionDetalle() {
           setSiguientes(e);
         }
       })
-      .catch(() => navigate('/operaciones'))
+      .catch((err: any) => {
+        const status = err?.response?.status;
+        if (status === 404) {
+          navigate('/operaciones');
+        } else {
+          setLoadError(err?.response?.data?.message ?? `Error al cargar la operación (${status ?? 'red'})`);
+        }
+      })
       .finally(() => setLoading(false));
     // Load transactions and charges independently (don't block main load)
     transaccionesApi.getByOperacion(id).then(setTransacciones).catch(() => {});
     cargosOperacionApi.getByOperacion(id).then(setCargos).catch(() => {});
     mediosPagoApi.getActivos().then(setMediosPago).catch(() => {});
-  }, [id, navigate]);
+  }, [id, navigate, retryKey]);
 
   useEffect(() => {
     if (modalCobro) {
@@ -358,7 +368,27 @@ export default function OperacionDetalle() {
   };
 
   if (loading) return <div className="p-8 text-center text-gray-400">Cargando...</div>;
-  if (!op)     return null;
+
+  if (loadError) return (
+    <div className="p-8 max-w-xl mx-auto mt-16 text-center">
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-8 space-y-4">
+        <p className="text-red-600 font-semibold">No se pudo cargar la operación</p>
+        <p className="text-sm text-red-500">{loadError}</p>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button onClick={() => navigate('/operaciones')}
+            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+            ← Volver al listado
+          </button>
+          <button onClick={() => { setLoadError(null); setLoading(true); setRetryKey(k => k + 1); }}
+            className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            Reintentar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!op) return null;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">

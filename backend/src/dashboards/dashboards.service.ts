@@ -148,7 +148,7 @@ export class DashboardsService {
 
       // ── Vencimientos próximos 10 días ─────────────────────────────────
       this.ds.query(`
-        SELECT o.id, o.nro_operacion, o.contacto_nombre, o.canal,
+        SELECT o.id AS operacion_id, o.nro_operacion, o.contacto_nombre, o.canal,
                o.fecha_operacion,
                cd.nro_cheque, cd.banco, cd.fecha_vencimiento,
                cd.monto::bigint,

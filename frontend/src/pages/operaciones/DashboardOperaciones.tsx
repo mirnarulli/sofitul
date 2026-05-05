@@ -375,11 +375,12 @@ export default function DashboardOperaciones() {
                   const urgente = dias <= 2;
                   const proximo = dias <= 7;
                   return (
-                    <tr key={`${v.id}-${v.nro_cheque}`} className="hover:bg-gray-50 transition-colors">
+                    <tr key={`${v.operacion_id ?? v.nro_cheque}`} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-2.5">
-                        <Link to={`/operaciones/${v.id}`} className="text-blue-600 hover:underline font-medium">
-                          {v.nro_operacion}
-                        </Link>
+                        {v.operacion_id
+                          ? <Link to={`/operaciones/${v.operacion_id}`} className="text-blue-600 hover:underline font-medium">{v.nro_operacion}</Link>
+                          : <span className="font-medium text-gray-800">{v.nro_operacion}</span>
+                        }
                       </td>
                       <td className="px-3 py-2.5 font-medium text-gray-800 max-w-[160px] truncate">{v.contacto_nombre}</td>
                       <td className="px-3 py-2.5 text-gray-600">{v.banco}</td>
