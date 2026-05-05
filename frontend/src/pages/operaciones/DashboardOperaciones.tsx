@@ -364,7 +364,7 @@ export default function DashboardOperaciones() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  {['Operación', 'Cliente', 'Banco', 'N° Cheque', 'Vencimiento', 'Días', 'Valor', 'Capital', 'Interés Generado', 'Tasa Ef.', 'Canal'].map(h => (
+                  {['Operación', 'Cliente', 'Banco', 'N° Cheque', 'Vencimiento', 'Plazo', 'Días', 'Valor', 'Capital', 'Interés Generado', 'Tasa Ef.', 'Canal'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -388,6 +388,11 @@ export default function DashboardOperaciones() {
                         {v.fecha_vencimiento
                           ? new Date(String(v.fecha_vencimiento).slice(0, 10) + 'T00:00:00').toLocaleDateString('es-PY', { day:'2-digit', month:'short', year:'numeric' })
                           : '—'}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap text-center">
+                        {v.plazo_dias != null
+                          ? <span className="inline-block text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">{v.plazo_dias}d</span>
+                          : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-3 py-2.5">
                         <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${

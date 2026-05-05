@@ -149,11 +149,13 @@ export class DashboardsService {
       // ── Vencimientos próximos 10 días ─────────────────────────────────
       this.ds.query(`
         SELECT o.id, o.nro_operacion, o.contacto_nombre, o.canal,
+               o.fecha_operacion,
                cd.nro_cheque, cd.banco, cd.fecha_vencimiento,
                cd.monto::bigint,
                cd.capital_invertido::bigint,
                cd.interes::bigint,
                (cd.fecha_vencimiento::date - CURRENT_DATE)                               AS dias_restantes,
+               (cd.fecha_vencimiento::date - o.fecha_operacion::date)                    AS plazo_dias,
                CASE WHEN cd.capital_invertido > 0
                     THEN ROUND((cd.interes / cd.capital_invertido * 100)::numeric, 2)
                     ELSE NULL
