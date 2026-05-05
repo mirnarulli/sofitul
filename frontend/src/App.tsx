@@ -122,8 +122,8 @@ export default function App() {
             <Route path="/dashboards/desembolsos" element={<DashboardDesembolsos />} />
             <Route path="/dashboards/financiero"  element={<DashboardFinanciero />} />
 
-            {/* Administración */}
-            <Route path="/admin/usuarios" element={<Usuarios />} />
+            {/* Administración / Seguridad */}
+            <Route path="/admin/usuarios" element={<Navigate to="/rrhh/usuarios" replace />} />
             <Route path="/admin/roles"    element={<GestionRoles />} />
             <Route path="/admin/bitacora" element={<BitacoraAdmin />} />
 
@@ -147,6 +147,7 @@ export default function App() {
             <Route path="/panel/timbrados-set"      element={<TimbradosSet />} />
 
             {/* RRHH */}
+            <Route path="/rrhh/usuarios"            element={<Usuarios />} />
             <Route path="/rrhh/empleados"           element={<Empleados />} />
             <Route path="/rrhh/empleados/:id"       element={<EmpleadoDetalle />} />
 

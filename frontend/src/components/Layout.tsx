@@ -41,9 +41,11 @@ const MODULES: NavModule[] = [
   },
   {
     id: 'rrhh', label: 'RRHH', icon: UserCheck, pathPrefix: '/rrhh',
+    moduloPermiso: 'admin',
     sections: [{
       items: [
-        { icon: Users2, label: 'Empleados', path: '/rrhh/empleados' },
+        { icon: Users2,        label: 'Empleados', path: '/rrhh/empleados' },
+        { icon: Users,         label: 'Usuarios del sistema', path: '/rrhh/usuarios' },
       ],
     }],
   },
@@ -71,13 +73,12 @@ const MODULES: NavModule[] = [
     }],
   },
   {
-    id: 'admin', label: 'Administración', icon: UserCog, pathPrefix: '/admin',
+    id: 'admin', label: 'Seguridad', icon: UserCog, pathPrefix: '/admin',
     moduloPermiso: 'admin',
     sections: [{
       items: [
-        { icon: Users,         label: 'Usuarios', path: '/admin/usuarios' },
-        { icon: Tag,           label: 'Roles', path: '/admin/roles' },
-        { icon: ClipboardList, label: 'Bitácora', path: '/admin/bitacora' },
+        { icon: Tag,           label: 'Roles y permisos', path: '/admin/roles' },
+        { icon: ClipboardList, label: 'Bitácora de accesos', path: '/admin/bitacora' },
       ],
     }],
   },
