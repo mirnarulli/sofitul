@@ -111,10 +111,34 @@ echo "  → Ejecutando migraciones SQL..."
 if [[ -f /tmp/sofitul_migrations.tar.gz ]]; then
   mkdir -p /tmp/sofitul_migrations
   tar -xzf /tmp/sofitul_migrations.tar.gz -C /tmp/sofitul_migrations
+
+  # Crear tabla de tracking si no existe (idempotente)
+  docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB -c "
+    CREATE TABLE IF NOT EXISTS _migrations (
+      id SERIAL PRIMARY KEY,
+      nombre VARCHAR NOT NULL UNIQUE,
+      aplicada_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );" >/dev/null 2>&1 || true
+
   for f in \$(ls /tmp/sofitul_migrations/*.sql 2>/dev/null | sort); do
-    echo "    Aplicando \$(basename \$f)..."
-    docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB < "\$f"
+    nombre=\$(basename "\$f")
+    # Saltar si ya fue aplicada
+    ya=\$(docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB -tAc \
+      "SELECT COUNT(*) FROM _migrations WHERE nombre='\$nombre'" 2>/dev/null || echo "0")
+    if [[ "\$ya" =~ ^[[:space:]]*1 ]]; then
+      echo "    ⏭  \$nombre (ya aplicada, saltando)"
+      continue
+    fi
+    echo "    Aplicando \$nombre..."
+    if docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB < "\$f"; then
+      docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB -c \
+        "INSERT INTO _migrations (nombre) VALUES ('\$nombre')" >/dev/null 2>&1 || true
+      echo "    ✔  \$nombre aplicada"
+    else
+      echo "    ⚠  \$nombre falló — revisar manualmente, continuando deploy..."
+    fi
   done
+
   rm -rf /tmp/sofitul_migrations /tmp/sofitul_migrations.tar.gz
 fi
 echo "  → Migraciones OK"
@@ -122,7 +146,7 @@ echo "  → Migraciones OK"
 echo "  → Desplegando backend..."
 mkdir -p $APP_DIR/backend
 cd $APP_DIR/backend
-tar -xzf /tmp/sofitul_backend_dist.tar.gz --overwrite
+tar -xzf /tmp/sofitul_backend_dist.tar.gz
 pnpm install --prod --frozen-lockfile
 rm -f /tmp/sofitul_backend_dist.tar.gz
 echo "  → Backend OK"
