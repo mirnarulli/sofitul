@@ -364,7 +364,7 @@ export default function DashboardOperaciones() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
-                  {['Operación', 'Cliente', 'Banco', 'N° Cheque', 'Vencimiento', 'Días', 'Valor', 'Capital', 'Interés Generado', 'Canal'].map(h => (
+                  {['Operación', 'Cliente', 'Banco', 'N° Cheque', 'Vencimiento', 'Días', 'Valor', 'Capital', 'Interés Generado', 'Tasa Ef.', 'Canal'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -399,6 +399,11 @@ export default function DashboardOperaciones() {
                       <td className="px-3 py-2.5 font-semibold text-gray-900 text-right whitespace-nowrap">{fGsFull(v.monto)}</td>
                       <td className="px-3 py-2.5 text-blue-700 text-right whitespace-nowrap">{fGsFull(v.capital_invertido)}</td>
                       <td className="px-3 py-2.5 text-emerald-700 font-semibold text-right whitespace-nowrap">+{fGsFull(v.interes)}</td>
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                        {v.tasa_efectiva != null
+                          ? <span className="font-mono text-sm font-semibold text-amber-700">{Number(v.tasa_efectiva).toFixed(2)}%</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="px-3 py-2.5">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           v.canal === 'TeDescuento' ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-600'

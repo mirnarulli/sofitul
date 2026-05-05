@@ -52,6 +52,27 @@ export class UsersController {
     return this.usersService.resetPasswordAdmin(id);
   }
 
+  // ── Link invitación para compartir por WhatsApp ───────────────────────────
+  @Get(':id/link-invitacion')
+  @Roles('SUPERADMIN', 'ADMIN')
+  async getLinkInvitacion(@Param('id') id: string) {
+    return this.usersService.getLinkInvitacion(id);
+  }
+
+  // ── Link reset/contraseña para compartir por WhatsApp ────────────────────
+  @Get(':id/link-reset')
+  @Roles('SUPERADMIN', 'ADMIN')
+  async getLinkReset(@Param('id') id: string) {
+    return this.usersService.getLinkReset(id);
+  }
+
+  // ── Resetear usuario ACTIVO a PENDIENTE (sin email) ──────────────────────
+  @Post(':id/resetear-pendiente')
+  @Roles('SUPERADMIN', 'ADMIN')
+  async resetearAPendiente(@Param('id') id: string) {
+    return this.usersService.resetearAPendiente(id);
+  }
+
   // ── Roles ─────────────────────────────────────────────────────────────────
   @Get('roles')
   @Roles('SUPERADMIN', 'ADMIN')

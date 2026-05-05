@@ -47,8 +47,13 @@ export class DashboardsService {
   async getDashboardOperaciones() {
     const ACTIVOS = `('EN_COBRANZA','DESEMBOLSADO','MORA','PRORROGADO','RENOVADO','COBRADO')`;
     const CARTERA = `('EN_COBRANZA','DESEMBOLSADO','MORA','PRORROGADO','RENOVADO')`;
+    const TESORERIA_ESTADOS = `('EN_TESORERIA','DESEMBOLSO_PENDIENTE','PENDIENTE_PAGARE')`;
+    const ANALISIS_ESTADOS  = `('EN_ANALISIS','EXCEPCION_COMERCIAL','EN_REFERENCIAS','OBSERVADO')`;
 
-    const [kpis, porEstado, porCliente, porBanco, porCanal, proyeccionSemanal, vencimientosInmediatos] = await Promise.all([
+    const [
+      kpis, porEstado, porCliente, porBanco, porCanal, proyeccionSemanal, vencimientosInmediatos,
+      pipeline, cobrar15d, timeline15d, cumpleanios,
+    ] = await Promise.all([
 
       // ── KPIs principales ──────────────────────────────────────────────
       this.ds.query(`
@@ -148,13 +153,138 @@ export class DashboardsService {
                cd.monto::bigint,
                cd.capital_invertido::bigint,
                cd.interes::bigint,
-               (cd.fecha_vencimiento::date - CURRENT_DATE) AS dias_restantes
+               (cd.fecha_vencimiento::date - CURRENT_DATE)                               AS dias_restantes,
+               CASE WHEN cd.capital_invertido > 0
+                    THEN ROUND((cd.interes / cd.capital_invertido * 100)::numeric, 2)
+                    ELSE NULL
+               END                                                                        AS tasa_efectiva
         FROM cheques_detalle cd
         JOIN operaciones o ON o.id::text = cd.operacion_id
         WHERE o.estado IN ${CARTERA}
           AND cd.estado NOT IN ('COBRADO','PROTESTADO')
           AND cd.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '10 days'
         ORDER BY cd.fecha_vencimiento ASC
+        LIMIT 20
+      `),
+
+      // ── Pipeline por etapa ────────────────────────────────────────────
+      this.ds.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE estado = 'PREVENTA')::int                                                  AS preventa_qty,
+          COALESCE(SUM(monto_total) FILTER (WHERE estado = 'PREVENTA'), 0)::bigint                          AS preventa_monto,
+          COUNT(*) FILTER (WHERE estado IN ${ANALISIS_ESTADOS})::int                                        AS analisis_qty,
+          COALESCE(SUM(monto_total) FILTER (WHERE estado IN ${ANALISIS_ESTADOS}), 0)::bigint               AS analisis_monto,
+          COUNT(*) FILTER (WHERE estado IN ${TESORERIA_ESTADOS})::int                                       AS tesoreria_qty,
+          COALESCE(SUM(neto_desembolsar) FILTER (WHERE estado IN ${TESORERIA_ESTADOS}), 0)::bigint          AS tesoreria_desembolsar,
+          COUNT(*) FILTER (WHERE estado = 'EN_TESORERIA')::int                                              AS desembolsar_hoy_qty,
+          COALESCE(SUM(neto_desembolsar) FILTER (WHERE estado = 'EN_TESORERIA'), 0)::bigint                 AS desembolsar_hoy_monto,
+          COUNT(*) FILTER (WHERE estado = 'MORA')::int                                                      AS mora_qty,
+          COALESCE(SUM(monto_total) FILTER (WHERE estado = 'MORA'), 0)::bigint                             AS mora_monto,
+          COUNT(*) FILTER (WHERE estado = 'PRORROGADO')::int                                                AS prorrogado_qty,
+          COALESCE(SUM(monto_total) FILTER (WHERE estado = 'PRORROGADO'), 0)::bigint                       AS prorrogado_monto
+        FROM operaciones
+      `),
+
+      // ── Cobrar: HOY + próximos 15 días + cobrado últimos 15 días ─────
+      this.ds.query(`
+        SELECT
+          COALESCE(SUM(cd.monto) FILTER (WHERE cd.fecha_vencimiento::date = CURRENT_DATE), 0)::bigint                                                                                          AS cobrar_hoy_monto,
+          COUNT(*)              FILTER (WHERE cd.fecha_vencimiento::date = CURRENT_DATE)::int                                                                                                   AS cobrar_hoy_qty,
+          COALESCE(SUM(cd.monto) FILTER (WHERE cd.fecha_vencimiento::date > CURRENT_DATE
+                                            AND cd.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '15 days'), 0)::bigint                                                                   AS cobrar_15d_monto,
+          COUNT(*)               FILTER (WHERE cd.fecha_vencimiento::date > CURRENT_DATE
+                                            AND cd.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '15 days')::int                                                                          AS cobrar_15d_qty,
+          COALESCE(SUM(cd.monto) FILTER (WHERE cd.estado = 'COBRADO'
+                                            AND cd.fecha_vencimiento::date >= CURRENT_DATE - INTERVAL '15 days'
+                                            AND cd.fecha_vencimiento::date < CURRENT_DATE), 0)::bigint                                                                                         AS cobrado_15d_monto,
+          COUNT(*)               FILTER (WHERE cd.estado = 'COBRADO'
+                                            AND cd.fecha_vencimiento::date >= CURRENT_DATE - INTERVAL '15 days'
+                                            AND cd.fecha_vencimiento::date < CURRENT_DATE)::int                                                                                                AS cobrado_15d_qty
+        FROM cheques_detalle cd
+        JOIN operaciones o ON o.id::text = cd.operacion_id
+        WHERE o.estado IN ${CARTERA}
+           OR cd.estado = 'COBRADO'
+      `),
+
+      // ── Timeline 30 días (±15 desde hoy) ─────────────────────────────
+      this.ds.query(`
+        WITH dias AS (
+          SELECT generate_series(
+            CURRENT_DATE - INTERVAL '14 days',
+            CURRENT_DATE + INTERVAL '15 days',
+            INTERVAL '1 day'
+          )::date AS dia
+        ),
+        cargas AS (
+          SELECT fecha_operacion::date AS dia,
+                 COUNT(*)::int         AS qty,
+                 COALESCE(SUM(monto_total), 0)::bigint AS monto
+          FROM operaciones
+          WHERE fecha_operacion::date >= CURRENT_DATE - INTERVAL '14 days'
+          GROUP BY 1
+        ),
+        vencer AS (
+          SELECT cd.fecha_vencimiento::date AS dia,
+                 COUNT(*)::int              AS qty,
+                 COALESCE(SUM(cd.monto), 0)::bigint AS monto
+          FROM cheques_detalle cd
+          JOIN operaciones o ON o.id::text = cd.operacion_id
+          WHERE o.estado IN ${CARTERA}
+            AND cd.estado NOT IN ('COBRADO','PROTESTADO')
+            AND cd.fecha_vencimiento::date >= CURRENT_DATE - INTERVAL '14 days'
+            AND cd.fecha_vencimiento::date <= CURRENT_DATE + INTERVAL '15 days'
+          GROUP BY 1
+        ),
+        cobrados AS (
+          SELECT cd.fecha_vencimiento::date AS dia,
+                 COUNT(*)::int              AS qty,
+                 COALESCE(SUM(cd.monto), 0)::bigint AS monto
+          FROM cheques_detalle cd
+          JOIN operaciones o ON o.id::text = cd.operacion_id
+          WHERE cd.estado = 'COBRADO'
+            AND cd.fecha_vencimiento::date >= CURRENT_DATE - INTERVAL '14 days'
+            AND cd.fecha_vencimiento::date <= CURRENT_DATE
+          GROUP BY 1
+        )
+        SELECT
+          d.dia,
+          TO_CHAR(d.dia, 'DD/MM') AS label,
+          COALESCE(ca.qty,  0) AS cargas_qty,
+          COALESCE(ca.monto,0) AS cargas_monto,
+          COALESCE(v.qty,   0) AS vencer_qty,
+          COALESCE(v.monto, 0) AS vencer_monto,
+          COALESCE(co.qty,  0) AS cobrado_qty,
+          COALESCE(co.monto,0) AS cobrado_monto
+        FROM dias d
+        LEFT JOIN cargas   ca ON ca.dia = d.dia
+        LEFT JOIN vencer   v  ON v.dia  = d.dia
+        LEFT JOIN cobrados co ON co.dia = d.dia
+        ORDER BY d.dia ASC
+      `),
+
+      // ── Cumpleaños próximos 7 días (contactos PF) ─────────────────────
+      this.ds.query(`
+        WITH rango AS (SELECT CURRENT_DATE AS hoy, CURRENT_DATE + INTERVAL '7 days' AS hasta)
+        SELECT
+          cpf.id,
+          cpf.primer_nombre || ' ' || cpf.primer_apellido AS nombre,
+          cpf.fecha_nacimiento,
+          cpf.celular,
+          cpf.email,
+          TO_CHAR(cpf.fecha_nacimiento::date, 'DD/MM') AS dia_mes
+        FROM contactos_pf cpf, rango
+        WHERE cpf.fecha_nacimiento IS NOT NULL
+          AND (
+            CASE
+              WHEN TO_CHAR(rango.hoy,   'MMDD') <= TO_CHAR(rango.hasta, 'MMDD') THEN
+                TO_CHAR(cpf.fecha_nacimiento::date, 'MMDD')
+                  BETWEEN TO_CHAR(rango.hoy, 'MMDD') AND TO_CHAR(rango.hasta, 'MMDD')
+              ELSE
+                TO_CHAR(cpf.fecha_nacimiento::date, 'MMDD') >= TO_CHAR(rango.hoy,   'MMDD')
+                OR TO_CHAR(cpf.fecha_nacimiento::date, 'MMDD') <= TO_CHAR(rango.hasta, 'MMDD')
+            END
+          )
+        ORDER BY TO_CHAR(cpf.fecha_nacimiento::date, 'MMDD') ASC
         LIMIT 20
       `),
     ]);
@@ -167,6 +297,10 @@ export class DashboardsService {
       porCanal,
       proyeccionSemanal,
       vencimientosInmediatos,
+      pipeline:   pipeline[0],
+      cobrar15d:  cobrar15d[0],
+      timeline15d,
+      cumpleanios,
     };
   }
 

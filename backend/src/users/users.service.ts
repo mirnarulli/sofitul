@@ -201,4 +201,69 @@ export class UsersService {
 
     return { mensaje: 'Reset de contraseña generado', token };
   }
+
+  // ── Link para compartir por WhatsApp ──────────────────────────────────────
+
+  private buildSharePayload(usuario: Usuario, tipo: 'activacion' | 'reset' = 'activacion') {
+    const base = process.env.FRONTEND_URL ?? 'http://localhost:5174';
+    const link = `${base}/completar-perfil?token=${usuario.tokenInvitacion}`;
+    const nombre = `${usuario.primerNombre} ${usuario.primerApellido}`;
+    const mensaje = tipo === 'activacion'
+      ? `Hola ${usuario.primerNombre}! 👋\n\nTe invitamos a SOFITUL. Hacé clic en el siguiente enlace para activar tu cuenta y crear tu contraseña:\n\n${link}\n\nEl enlace vence en 48 horas.`
+      : `Hola ${usuario.primerNombre}! 👋\n\nUsa este enlace para crear una nueva contraseña en SOFITUL:\n\n${link}\n\nEl enlace vence en 2 horas.`;
+    const whatsappUrl = usuario.telefono
+      ? `https://wa.me/${usuario.telefono.replace(/\D/g, '')}?text=${encodeURIComponent(mensaje)}`
+      : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+    return { link, mensaje, whatsappUrl, telefono: usuario.telefono ?? null, expiraAt: usuario.tokenInvitacionExpira?.toISOString() ?? null, tipo, nombre };
+  }
+
+  /** Devuelve el link de activación actual (o genera uno nuevo) para un usuario PENDIENTE */
+  async getLinkInvitacion(id: string) {
+    const usuario = await this.usuariosRepo.findOne({ where: { id } });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    // Si el token expiró o no existe, regenerar
+    if (!usuario.tokenInvitacion || (usuario.tokenInvitacionExpira && usuario.tokenInvitacionExpira < new Date())) {
+      const token  = crypto.randomBytes(32).toString('hex');
+      const expira = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 horas
+      await this.usuariosRepo.update(id, { tokenInvitacion: token, tokenInvitacionExpira: expira });
+      const actualizado = await this.usuariosRepo.findOne({ where: { id } });
+      return this.buildSharePayload(actualizado!, 'activacion');
+    }
+
+    return this.buildSharePayload(usuario, 'activacion');
+  }
+
+  /** Genera un token de reset para compartir por WhatsApp (usuarios activos) */
+  async getLinkReset(id: string) {
+    const usuario = await this.usuariosRepo.findOne({ where: { id } });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+    const token  = crypto.randomBytes(32).toString('hex');
+    const expira = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 horas
+
+    await this.usuariosRepo.update(id, { tokenInvitacion: token, tokenInvitacionExpira: expira, debeCambiarPassword: true });
+    const actualizado = await this.usuariosRepo.findOne({ where: { id } });
+    return this.buildSharePayload(actualizado!, 'reset');
+  }
+
+  /** Resetea un usuario ACTIVO a estado PENDIENTE sin enviar email */
+  async resetearAPendiente(id: string): Promise<{ mensaje: string }> {
+    const usuario = await this.usuariosRepo.findOne({ where: { id } });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    if (!usuario.activadoAt) throw new BadRequestException('El usuario ya está pendiente');
+
+    const token  = crypto.randomBytes(32).toString('hex');
+    const expira = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 horas
+
+    await this.usuariosRepo.update(id, {
+      activadoAt:            null as any,
+      emailVerificado:       false,
+      debeCambiarPassword:   true,
+      tokenInvitacion:       token,
+      tokenInvitacionExpira: expira,
+    });
+
+    return { mensaje: 'Usuario puesto en PENDIENTE. Podés compartir el link de activación por WhatsApp.' };
+  }
 }

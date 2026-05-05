@@ -124,11 +124,25 @@ export const panelGlobalApi = {
   proximoHabil:             (fecha: string)                 => api.get('/feriados/proximo-habil', { params: { fecha } }).then(r => r.data),
 };
 
+export interface LinkInvitacion {
+  link:        string;
+  mensaje:     string;
+  whatsappUrl: string;
+  telefono:    string | null;
+  expiraAt:    string | null;
+  tipo?:       'activacion' | 'reset';
+  nombre?:     string;
+}
+
 export const usuariosApi = {
-  getAll:           ()                          => api.get('/usuarios').then(r => r.data),
-  update:           (id: string, body: any)     => api.put(`/usuarios/${id}`, body).then(r => r.data),
-  invitar:          (body: any)                 => api.post('/auth/invitar', body).then(r => r.data),
-  toggleBloqueo:    (id: string, bloqueado: boolean) => api.put(`/usuarios/${id}/bloqueo`, { bloqueado }).then(r => r.data),
+  getAll:              ()                               => api.get('/usuarios').then(r => r.data),
+  update:              (id: string, body: any)          => api.put(`/usuarios/${id}`, body).then(r => r.data),
+  invitar:             (body: any)                      => api.post('/auth/invitar', body).then(r => r.data),
+  toggleBloqueo:       (id: string, bloqueado: boolean) => api.put(`/usuarios/${id}/bloqueo`, { bloqueado }).then(r => r.data),
+  reenviarInvitacion:  (id: string)                     => api.post(`/usuarios/${id}/reenviar-invitacion`).then(r => r.data),
+  getLinkInvitacion:   (id: string): Promise<LinkInvitacion>  => api.get(`/usuarios/${id}/link-invitacion`).then(r => r.data),
+  getLinkReset:        (id: string): Promise<LinkInvitacion>  => api.get(`/usuarios/${id}/link-reset`).then(r => r.data),
+  resetearAPendiente:  (id: string)                     => api.post(`/usuarios/${id}/resetear-pendiente`).then(r => r.data),
 
   getRoles:         ()                          => api.get('/usuarios/roles').then(r => r.data),
   createRol:        (body: any)                 => api.post('/usuarios/roles', body).then(r => r.data),
