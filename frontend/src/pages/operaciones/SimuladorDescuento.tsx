@@ -437,6 +437,7 @@ export default function SimuladorDescuento() {
 
       const body = {
         tipoOperacion:    'DESCUENTO_CHEQUE',
+        estado:           'PREVENTA',          // inicia como pre-venta; se confirma en OperacionDetalle
         contactoTipo:     clienteSel.tipo,
         contactoId:       clienteSel.id,
         contactoNombre:   nombre,

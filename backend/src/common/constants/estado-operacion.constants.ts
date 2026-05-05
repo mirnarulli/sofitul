@@ -4,29 +4,41 @@
  * Los estados dinámicos se gestionan desde la tabla estados_operacion (Panel Global).
  */
 export const ESTADO_OP = {
-  // Ingreso
-  EN_ANALISIS:            'EN_ANALISIS',
+  // ── Preventa (simulación guardada, aún no confirmada) ──────────────────
+  PREVENTA:               'PREVENTA',
+
+  // ── Ingreso / Referencias ──────────────────────────────────────────────
+  EN_REFERENCIAS:         'EN_REFERENCIAS',        // cargando InfoCheck y refs
   FORMULARIO_CARGADO:     'FORMULARIO_CARGADO',
   DATOS_PENDIENTES:       'DATOS_PENDIENTES',
   REFERENCIAS_PENDIENTES: 'REFERENCIAS_PENDIENTES',
   OBSERVADO:              'OBSERVADO',
-  // Aprobación
+
+  // ── Análisis ───────────────────────────────────────────────────────────
+  EN_ANALISIS:            'EN_ANALISIS',
+  EXCEPCION_COMERCIAL:    'EXCEPCION_COMERCIAL',   // requiere firmas adicionales
+
+  // ── Aprobación ─────────────────────────────────────────────────────────
   APROBADO:               'APROBADO',
   RECHAZADO:              'RECHAZADO',
   EN_LEGAJO:              'EN_LEGAJO',
   DOCUMENTOS_GENERADOS:   'DOCUMENTOS_GENERADOS',
   PENDIENTE_PAGARE:       'PENDIENTE_PAGARE',
-  // Desembolso
+
+  // ── Desembolso ─────────────────────────────────────────────────────────
   EN_TESORERIA:           'EN_TESORERIA',
   DESEMBOLSO_PENDIENTE:   'DESEMBOLSO_PENDIENTE',
   DESEMBOLSADO:           'DESEMBOLSADO',
-  // Cobranza
+
+  // ── Cobranza ───────────────────────────────────────────────────────────
   EN_COBRANZA:            'EN_COBRANZA',
   MORA:                   'MORA',
   PRORROGADO:             'PRORROGADO',
   RENOVADO:               'RENOVADO',
   COBRADO:                'COBRADO',
-  // Terminal
+
+  // ── Terminal ───────────────────────────────────────────────────────────
+  RECHAZADO_CLIENTE:      'RECHAZADO_CLIENTE',     // cliente desistió
   CERRADO:                'CERRADO',
   VIGENTE:                'VIGENTE',
   VENCIDO:                'VENCIDO',
@@ -34,12 +46,15 @@ export const ESTADO_OP = {
 
 export type EstadoOperacionValue = typeof ESTADO_OP[keyof typeof ESTADO_OP];
 
-/** Estados que indican que la operación sigue en curso */
+/** Estados que indican que la operación sigue en curso (no es terminal) */
 export const ESTADOS_VIGENTES_SET = new Set<string>([
+  ESTADO_OP.PREVENTA,
+  ESTADO_OP.EN_REFERENCIAS,
   ESTADO_OP.FORMULARIO_CARGADO,
   ESTADO_OP.DATOS_PENDIENTES,
   ESTADO_OP.REFERENCIAS_PENDIENTES,
   ESTADO_OP.EN_ANALISIS,
+  ESTADO_OP.EXCEPCION_COMERCIAL,
   ESTADO_OP.OBSERVADO,
   ESTADO_OP.APROBADO,
   ESTADO_OP.EN_LEGAJO,
@@ -52,6 +67,14 @@ export const ESTADOS_VIGENTES_SET = new Set<string>([
   ESTADO_OP.VIGENTE,
   ESTADO_OP.MORA,
   ESTADO_OP.PRORROGADO,
+]);
+
+/** Estados terminales (operación cerrada definitivamente) */
+export const ESTADOS_TERMINALES_SET = new Set<string>([
+  ESTADO_OP.RECHAZADO,
+  ESTADO_OP.RECHAZADO_CLIENTE,
+  ESTADO_OP.COBRADO,
+  ESTADO_OP.CERRADO,
 ]);
 
 /** Cuotas */
