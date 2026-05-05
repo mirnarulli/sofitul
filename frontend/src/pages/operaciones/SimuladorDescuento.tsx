@@ -7,6 +7,9 @@ import { DocHeader, DocFooter } from '../../components/DocHeader';
 import DocBarcode from '../../components/DocBarcode';
 import { useEmpresa } from '../../context/LogosContext';
 
+// ── Constantes ────────────────────────────────────────────────────────────
+const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] as const;
+
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
 interface Cheque {
@@ -56,6 +59,27 @@ function proximoHabilLocal(fecha: string, feriados: Set<string>): string {
     if (dow !== 0 && dow !== 6 && !feriados.has(fechaLocal(d))) return fechaLocal(d);
     d.setDate(d.getDate() + 1);
   }
+}
+
+// ── Días hábiles (lunes a viernes, excluye feriados) ─────────────────────
+// Uso: para scheduling de pagos, vencimientos y aplicaciones.
+// NO se usa para el cálculo de interés — ese usa calcDiasCorridos.
+
+function calcDiasHabiles(from: string, to: string, feriados: Set<string>): number {
+  if (!from || !to) return 0;
+  const toEfectivo = proximoHabilLocal(to, feriados);
+  const start = new Date(from       + 'T00:00:00');
+  const end   = new Date(toEfectivo + 'T00:00:00');
+  if (end <= start) return 0;
+  let count = 0;
+  const curr = new Date(start);
+  curr.setDate(curr.getDate() + 1);
+  while (curr <= end) {
+    const dow = curr.getDay();
+    if (dow !== 0 && dow !== 6 && !feriados.has(fechaLocal(curr))) count++;
+    curr.setDate(curr.getDate() + 1);
+  }
+  return count;
 }
 
 // ── Días corridos hasta el vencimiento efectivo.
@@ -694,7 +718,7 @@ export default function SimuladorDescuento() {
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">RUC/CI Librador</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">N° Cheque</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Vencimiento</th>
-                <th className="text-center px-2 py-2 text-xs font-medium text-gray-500" title="Días corridos hasta vencimiento efectivo. Si el vto. cae en fin de semana o feriado, se suma hasta el siguiente día hábil.">Días</th>
+                <th className="text-center px-2 py-2 text-xs font-medium text-gray-500" title="Días imputables (corridos) hasta vencimiento efectivo. Si el vto. cae en fin de semana o feriado, los días extra suman a la financiación.">Días imp.</th>
                 <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Monto (Gs.)</th>
                 <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Tasa %/mes</th>
                 <th className="w-8"></th>
@@ -769,7 +793,7 @@ export default function SimuladorDescuento() {
                         className="w-28 border-0 bg-transparent px-2 py-1 text-sm focus:bg-white focus:border focus:border-blue-300 focus:rounded" />
                     </td>
 
-                    {/* Vencimiento — con validación 180 días */}
+                    {/* Vencimiento — con validación 180 días + indicador de día */}
                     <td className="px-1 py-1">
                       <input
                         type="date"
@@ -782,6 +806,29 @@ export default function SimuladorDescuento() {
                             : 'border-0 bg-transparent focus:bg-white focus:border focus:border-blue-300'
                         }`}
                       />
+                      {/* Día de la semana + ajuste si cae en finde/feriado */}
+                      {c.vencimiento && (() => {
+                        const d    = new Date(c.vencimiento + 'T00:00:00');
+                        const dow  = d.getDay();
+                        const nombre = DIAS_SEMANA[dow];
+                        const esFinde = dow === 0 || dow === 6;
+                        const esFer   = feriados.has(c.vencimiento);
+                        const ajusta  = esFinde || esFer;
+                        const efectivo = ajusta ? proximoHabilLocal(c.vencimiento, feriados) : null;
+                        const dEfec  = efectivo ? new Date(efectivo + 'T00:00:00') : null;
+                        return (
+                          <div className="flex items-center gap-1 px-1 mt-0.5">
+                            <span className={`text-xs font-semibold ${ajusta ? 'text-orange-500' : 'text-gray-400'}`}>
+                              {nombre}
+                            </span>
+                            {ajusta && dEfec && (
+                              <span className="text-xs text-gray-400 whitespace-nowrap">
+                                → {DIAS_SEMANA[dEfec.getDay()]} {String(dEfec.getDate()).padStart(2,'0')}/{String(dEfec.getMonth()+1).padStart(2,'0')}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {vs === 'pasada' && (
                         <div className="text-xs text-red-500 px-1 mt-0.5 whitespace-nowrap">⚠ Fecha pasada</div>
                       )}
@@ -857,7 +904,7 @@ export default function SimuladorDescuento() {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">#</th>
                   <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Vencimiento</th>
-                  <th className="text-center px-3 py-2 text-xs font-medium text-gray-500" title="Días corridos hasta vencimiento efectivo. Si el vto. cae en fin de semana o feriado, se suma hasta el siguiente día hábil.">Días</th>
+                  <th className="text-center px-3 py-2 text-xs font-medium text-gray-500" title="Días imputables (corridos) hasta vencimiento efectivo. Si el vto. cae en fin de semana o feriado, los días extra suman a la financiación.">Días imp.</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Monto Cheque</th>
                   <th className="text-center px-3 py-2 text-xs font-medium text-gray-500">Tasa %/mes</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-gray-500 text-orange-600">Interés (Gs.)</th>
