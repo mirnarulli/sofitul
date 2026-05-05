@@ -157,7 +157,10 @@ export default function SimuladorDescuento() {
 
   // Bancos (Panel Global) — se usan en <datalist> para evitar problemas de
   // z-index/overflow con dropdown custom dentro de tabla overflow-x-auto
-  const [bancos, setBancos] = useState<any[]>([]);
+  const [bancos,  setBancos]  = useState<any[]>([]);
+
+  // Canales (Panel Global) — cargados desde /canales/activos
+  const [canales, setCanales] = useState<any[]>([]);
 
   // Feriados — Set de fechas YYYY-MM-DD para lookup O(1) al calcular días hábiles
   const [feriados, setFeriados] = useState<Set<string>>(new Set());
@@ -180,12 +183,19 @@ export default function SimuladorDescuento() {
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // ── Cargar bancos al montar (getBancos igual que Panel Global) ──────────
+  // ── Cargar bancos y canales al montar ────────────────────────────────────
   useEffect(() => {
     panelGlobalApi.getBancos()
       .then((data: any) => {
         const arr = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
         setBancos(arr.filter((b: any) => b.activo !== false));
+      })
+      .catch(() => {});
+
+    panelGlobalApi.getCanalesActivos()
+      .then((data: any) => {
+        const arr = Array.isArray(data) ? data : (data?.data ?? data?.items ?? []);
+        setCanales(arr);
       })
       .catch(() => {});
   }, []);
@@ -608,10 +618,12 @@ export default function SimuladorDescuento() {
             <select value={canal} onChange={e => setCanal(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
               <option value="">Seleccionar...</option>
-              <option>Particular</option>
-              <option>Te Descuento</option>
-              <option>Referido</option>
-              <option>Digital</option>
+              {canales.length > 0
+                ? canales.map((c: any) => (
+                    <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                  ))
+                : /* fallback si aún no cargó */ null
+              }
             </select>
           </div>
         </div>
