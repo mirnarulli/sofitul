@@ -44,8 +44,9 @@ const MODULES: NavModule[] = [
     moduloPermiso: 'admin',
     sections: [{
       items: [
-        { icon: Users2,        label: 'Empleados', path: '/rrhh/empleados' },
+        { icon: Users2,        label: 'Empleados',            path: '/rrhh/empleados' },
         { icon: Users,         label: 'Usuarios del sistema', path: '/rrhh/usuarios' },
+        { icon: Tag,           label: 'Roles y permisos',     path: '/rrhh/roles' },
       ],
     }],
   },
@@ -77,7 +78,6 @@ const MODULES: NavModule[] = [
     moduloPermiso: 'admin',
     sections: [{
       items: [
-        { icon: Tag,           label: 'Roles y permisos', path: '/admin/roles' },
         { icon: ClipboardList, label: 'Bitácora de accesos', path: '/admin/bitacora' },
       ],
     }],

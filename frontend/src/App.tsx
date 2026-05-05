@@ -122,9 +122,9 @@ export default function App() {
             <Route path="/dashboards/desembolsos" element={<DashboardDesembolsos />} />
             <Route path="/dashboards/financiero"  element={<DashboardFinanciero />} />
 
-            {/* Administración / Seguridad */}
+            {/* Administración / Seguridad — redirects a nueva ubicación en RRHH */}
             <Route path="/admin/usuarios" element={<Navigate to="/rrhh/usuarios" replace />} />
-            <Route path="/admin/roles"    element={<GestionRoles />} />
+            <Route path="/admin/roles"    element={<Navigate to="/rrhh/roles"    replace />} />
             <Route path="/admin/bitacora" element={<BitacoraAdmin />} />
 
             {/* Panel Global */}
@@ -148,6 +148,7 @@ export default function App() {
 
             {/* RRHH */}
             <Route path="/rrhh/usuarios"            element={<Usuarios />} />
+            <Route path="/rrhh/roles"               element={<GestionRoles />} />
             <Route path="/rrhh/empleados"           element={<Empleados />} />
             <Route path="/rrhh/empleados/:id"       element={<EmpleadoDetalle />} />
 
