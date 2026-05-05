@@ -96,15 +96,19 @@ log "[5/6] Actualizando servidor..."
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_HOST" bash << REMOTE
 set -e
 
-# Crear DB si no existe — no-bloqueante (algunos servers no tienen rol 'postgres')
-docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB -c "SELECT 1" >/dev/null 2>&1 || {
-  echo "  → DB no responde con $PG_USER, intentando crear con superuser 'postgres'..."
-  docker exec -i $PG_CONTAINER psql -U postgres -tc \
+# NOTA: todos los "docker exec" usan -c "..." inline (sin -i) para NO consumir el
+# stdin del heredoc SSH. Solo el piping de archivos SQL usa: cat file | docker exec -i
+# Ref: docker exec -i en heredoc SSH consume el resto del script como stdin de psql.
+
+# Crear DB si no existe — no-bloqueante
+docker exec $PG_CONTAINER psql -U $PG_USER -d $PG_DB -c "SELECT 1" >/dev/null 2>&1 || {
+  echo "  → DB no responde con $PG_USER, intentando crear..."
+  docker exec $PG_CONTAINER psql -U postgres -tc \
     "SELECT 1 FROM pg_database WHERE datname='$PG_DB'" 2>/dev/null | grep -q 1 || \
-    docker exec -i $PG_CONTAINER psql -U postgres \
+    docker exec $PG_CONTAINER psql -U postgres \
     -c "CREATE USER $PG_USER WITH PASSWORD 'S0f1tul2026Secure';" \
     -c "CREATE DATABASE $PG_DB OWNER $PG_USER;" 2>/dev/null || \
-    echo "  ⚠ No se pudo crear/verificar la DB con superuser 'postgres'. Si la DB ya existe, esto es esperado y el deploy continúa."
+    echo "  ⚠ No se pudo crear/verificar la DB. Si ya existe, esto es esperado."
 }
 
 echo "  → Ejecutando migraciones SQL..."
@@ -113,7 +117,7 @@ if [[ -f /tmp/sofitul_migrations.tar.gz ]]; then
   tar -xzf /tmp/sofitul_migrations.tar.gz -C /tmp/sofitul_migrations
 
   # Crear tabla de tracking si no existe (idempotente)
-  docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB -c "
+  docker exec $PG_CONTAINER psql -U $PG_USER -d $PG_DB -c "
     CREATE TABLE IF NOT EXISTS _migrations (
       id SERIAL PRIMARY KEY,
       nombre VARCHAR NOT NULL UNIQUE,
@@ -123,15 +127,16 @@ if [[ -f /tmp/sofitul_migrations.tar.gz ]]; then
   for f in \$(ls /tmp/sofitul_migrations/*.sql 2>/dev/null | sort); do
     nombre=\$(basename "\$f")
     # Saltar si ya fue aplicada
-    ya=\$(docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB -tAc \
+    ya=\$(docker exec $PG_CONTAINER psql -U $PG_USER -d $PG_DB -tAc \
       "SELECT COUNT(*) FROM _migrations WHERE nombre='\$nombre'" 2>/dev/null || echo "0")
     if [[ "\$ya" =~ ^[[:space:]]*1 ]]; then
       echo "    ⏭  \$nombre (ya aplicada, saltando)"
       continue
     fi
     echo "    Aplicando \$nombre..."
-    if docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB < "\$f"; then
-      docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB -c \
+    # cat | docker exec -i: pipe provee stdin para psql sin consumir el heredoc
+    if cat "\$f" | docker exec -i $PG_CONTAINER psql -U $PG_USER -d $PG_DB; then
+      docker exec $PG_CONTAINER psql -U $PG_USER -d $PG_DB -c \
         "INSERT INTO _migrations (nombre) VALUES ('\$nombre')" >/dev/null 2>&1 || true
       echo "    ✔  \$nombre aplicada"
     else
