@@ -123,6 +123,8 @@ export default function SimuladorDescuento() {
   // Librador búsqueda por cheque (arrays paralelos a cheques)
   const [libradorBusqs,   setLibradorBusqs]   = useState<string[]>(['']);
   const [libradorOptsAll, setLibradorOptsAll] = useState<ContactoOption[][]>([[]]);
+  // Posición del dropdown de librador — position:fixed para escapar overflow-x:auto de la tabla
+  const [libradorDropInfo, setLibradorDropInfo] = useState<{ row: number; top: number; left: number; width: number } | null>(null);
 
   // Bancos (Panel Global) — se usan en <datalist> para evitar problemas de
   // z-index/overflow con dropdown custom dentro de tabla overflow-x-auto
@@ -286,6 +288,7 @@ export default function SimuladorDescuento() {
     setCheques(prev => prev.map((c, idx) => idx === i ? { ...c, librador: nombre, rucLibrador: o.doc } : c));
     setLibradorBusqs(prev => prev.map((v, idx) => idx === i ? nombre : v));
     setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? [] : v));
+    setLibradorDropInfo(null);
   };
 
   // ── Cheques helpers ───────────────────────────────────────────────────
@@ -724,37 +727,33 @@ export default function SimuladorDescuento() {
                     </td>
 
                     {/* Librador — búsqueda PF + PJ con debounce 300ms.
-                        onBlur usa setTimeout(200) para que el click en el item
-                        se registre antes de cerrar el dropdown. */}
+                        El dropdown se renderiza con position:fixed fuera de este
+                        wrapper (overflow-x:auto clipa position:absolute). */}
                     <td className="px-1 py-1">
-                      <div className="relative">
-                        <input
-                          value={libradorBusqs[i] ?? ''}
-                          onChange={e => buscarLibrador(i, e.target.value)}
-                          onBlur={() => {
+                      <input
+                        value={libradorBusqs[i] ?? ''}
+                        onChange={e => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setLibradorDropInfo({ row: i, top: rect.bottom + 2, left: rect.left, width: Math.max(320, rect.width) });
+                          buscarLibrador(i, e.target.value);
+                        }}
+                        onFocus={e => {
+                          if ((libradorOptsAll[i] || []).length > 0) {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setLibradorDropInfo({ row: i, top: rect.bottom + 2, left: rect.left, width: Math.max(320, rect.width) });
+                          }
+                        }}
+                        onBlur={() => {
+                          // setTimeout 200ms → el onMouseDown del item se ejecuta antes del onBlur
+                          setTimeout(() => {
                             setLibradorOptsAll(prev => prev.map((v, idx) => idx === i ? [] : v));
-                          }}
-                          placeholder="Buscar librador (nombre, CI o RUC)..."
-                          autoComplete="off"
-                          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
-                        {(libradorOptsAll[i] || []).length > 0 && (
-                          <div className="absolute z-30 left-0 min-w-[280px] bg-white border border-gray-200 rounded-lg shadow-xl mt-0.5 max-h-52 overflow-y-auto">
-                            {(libradorOptsAll[i] || []).map((o: ContactoOption) => (
-                              <button
-                                key={o.id}
-                                onMouseDown={e => { e.preventDefault(); seleccionarLibrador(i, o); }}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-100 last:border-0"
-                              >
-                                <span className={`inline-block text-xs px-1.5 py-0.5 rounded mr-2 font-semibold ${o.tipo === 'pf' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                                  {o.tipo === 'pf' ? 'PF' : 'PJ'}
-                                </span>
-                                {o.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                            setLibradorDropInfo(null);
+                          }, 200);
+                        }}
+                        placeholder="Buscar librador (nombre, CI o RUC)..."
+                        autoComplete="off"
+                        className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
                     </td>
 
                     {/* RUC/CI Librador — se rellena al seleccionar, editable */}
@@ -1056,6 +1055,35 @@ export default function SimuladorDescuento() {
         </div>
       )}
     </div>  {/* /UI normal */}
+
+    {/* ── Dropdown librador — position:fixed para escapar overflow-x:auto ─── */}
+    {libradorDropInfo !== null && (libradorOptsAll[libradorDropInfo.row] || []).length > 0 && (
+      <div
+        style={{
+          position: 'fixed',
+          top:   libradorDropInfo.top,
+          left:  libradorDropInfo.left,
+          width: libradorDropInfo.width,
+          zIndex: 9999,
+        }}
+        className="bg-white border border-gray-200 rounded-lg shadow-xl max-h-52 overflow-y-auto print:hidden"
+      >
+        {(libradorOptsAll[libradorDropInfo.row] || []).map((o: ContactoOption) => (
+          <button
+            key={o.id}
+            onMouseDown={e => { e.preventDefault(); seleccionarLibrador(libradorDropInfo.row, o); }}
+            className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-100 last:border-0"
+          >
+            <span className={`inline-block text-xs px-1.5 py-0.5 rounded mr-2 font-semibold ${
+              o.tipo === 'pf' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+            }`}>
+              {o.tipo === 'pf' ? 'PF' : 'PJ'}
+            </span>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    )}
     </>   /* /Fragment */
   );
 }
