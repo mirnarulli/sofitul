@@ -84,28 +84,51 @@ const MODULES: NavModule[] = [
     }],
   },
   {
-    id: 'panel', label: 'Panel Global', icon: Settings, pathPrefix: '/panel',
+    id: 'ajustes', label: 'Ajustes', icon: Settings, pathPrefix: '/panel',
     moduloPermiso: 'panel_global',
-    sections: [{
-      items: [
-        { icon: Coins,          label: 'Monedas',              path: '/panel/monedas' },
-        { icon: Landmark,       label: 'Cajas',                path: '/panel/cajas' },
-        { icon: Globe,          label: 'Países',               path: '/panel/paises' },
-        { icon: FileText,       label: 'Tipos de documento',   path: '/panel/tipos-documento' },
-        { icon: Package,        label: 'Productos Financieros', path: '/panel/productos-financieros' },
-        { icon: ClipboardList,  label: 'Servicios Datos',       path: '/panel/informes-rigor' },
-        { icon: FileText,       label: 'Tipos Doc. Adjunto',   path: '/panel/tipos-doc-adjunto' },
-        { icon: Landmark,       label: 'Bancos',               path: '/panel/bancos' },
-        { icon: CreditCard,     label: 'Medios de Pago',       path: '/panel/medios-pago' },
-        { icon: Receipt,        label: 'Tipos de Cargo',       path: '/panel/tipos-cargo' },
-        { icon: Stamp,          label: 'Timbrados SET',        path: '/panel/timbrados-set' },
-        { icon: CalendarDays,   label: 'Feriados',             path: '/panel/feriados' },
-        { icon: ShieldOff,      label: 'Clientes Vetados',     path: '/panel/clientes-vetados' },
-        { icon: Building2,       label: 'Empresa',              path: '/panel/empresa' },
-        { icon: Link2,          label: 'Integraciones',        path: '/panel/integraciones' },
-        { icon: LayoutDashboard, label: 'Configuración',       path: '/panel/configuracion' },
-      ],
-    }],
+    sections: [
+      {
+        label: 'Financiero',
+        items: [
+          { icon: Coins,      label: 'Monedas',        path: '/panel/monedas' },
+          { icon: Landmark,   label: 'Cajas',          path: '/panel/cajas' },
+          { icon: Landmark,   label: 'Bancos',         path: '/panel/bancos' },
+          { icon: CreditCard, label: 'Medios de Pago', path: '/panel/medios-pago' },
+        ],
+      },
+      {
+        label: 'Operaciones',
+        items: [
+          { icon: Package,       label: 'Productos Financieros', path: '/panel/productos-financieros' },
+          { icon: ClipboardList, label: 'Servicios Datos',       path: '/panel/informes-rigor' },
+          { icon: ShieldOff,     label: 'Clientes Vetados',      path: '/panel/clientes-vetados' },
+        ],
+      },
+      {
+        label: 'General',
+        items: [
+          { icon: Globe,        label: 'Países',   path: '/panel/paises' },
+          { icon: CalendarDays, label: 'Feriados', path: '/panel/feriados' },
+        ],
+      },
+      {
+        label: 'Empresa',
+        items: [
+          { icon: Building2,     label: 'Empresa',            path: '/panel/empresa' },
+          { icon: FileText,      label: 'Tipos de documento', path: '/panel/tipos-documento' },
+          { icon: FileText,      label: 'Tipos Doc. Adjunto', path: '/panel/tipos-doc-adjunto' },
+          { icon: Receipt,       label: 'Tipos de Cargo',     path: '/panel/tipos-cargo' },
+          { icon: Stamp,         label: 'Timbrados SET',      path: '/panel/timbrados-set' },
+        ],
+      },
+      {
+        label: 'Sistema',
+        items: [
+          { icon: Link2,          label: 'Integraciones', path: '/panel/integraciones' },
+          { icon: LayoutDashboard, label: 'Ajustes',      path: '/panel/configuracion' },
+        ],
+      },
+    ],
   },
 ];
 
@@ -231,18 +254,29 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
               {isOpen ? <ChevronDown size={13} className="text-gray-400" /> : <ChevronRight size={13} className="text-gray-400" />}
             </button>
             {isOpen && (
-              <div className="ml-1.5 mt-0.5 mb-1 space-y-0.5">
-                {module.sections.flatMap(s => s.items).map(item => {
-                  const IIcon  = item.icon;
-                  const active = isActive(item.path);
-                  return (
-                    <Link key={item.path} to={item.path}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${active ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
-                      <IIcon size={15} className="shrink-0" />
-                      <span className="text-sm truncate">{item.label}</span>
-                    </Link>
-                  );
-                })}
+              <div className="ml-1.5 mt-0.5 mb-1">
+                {module.sections.map((s, si) => (
+                  <div key={si}>
+                    {s.label && (
+                      <p className="px-3 pt-2.5 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                        {s.label}
+                      </p>
+                    )}
+                    <div className="space-y-0.5">
+                      {s.items.map(item => {
+                        const IIcon  = item.icon;
+                        const active = isActive(item.path);
+                        return (
+                          <Link key={item.path} to={item.path}
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors ${active ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
+                            <IIcon size={15} className="shrink-0" />
+                            <span className="text-sm truncate">{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -337,7 +371,7 @@ function detectModule(pathname: string): string | null {
   if (pathname === '/dashboards/financiero')          return 'tesoreria';
   if (pathname.startsWith('/dashboards'))             return 'cobranzas';
   if (pathname.startsWith('/admin'))         return 'admin';
-  if (pathname.startsWith('/panel'))         return 'panel';
+  if (pathname.startsWith('/panel'))         return 'ajustes';
   if (pathname.startsWith('/rrhh'))          return 'rrhh';
   return null;
 }
